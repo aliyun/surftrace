@@ -299,10 +299,12 @@ class CasyncCmdQue(object):
         return self.__p.wait()
 
 class ftrace(object):
-    def __init__(self, show=False):
+    def __init__(self, show=False, echo=True):
         super(ftrace, self).__init__()
+        self._show = show
+        self._echo = echo
         self._c = CexecCmd()
-        if show:
+        if self._show:
             self.baseDir = ""
         else:
             self.__checkRoot()
@@ -342,13 +344,13 @@ class ftrace(object):
     def _echoPath(self, path, value=""):
         cmd = "echo %s > %s" % (value, path)
         saveCmd(cmd)
-        print(cmd)
+        if self._echo: print(cmd)
         return self._c.system(cmd)
 
     def _echoDPath(self, path, value=""):
         cmd = "echo %s >> %s" % (value, path)
         saveCmd(cmd)
-        print(cmd)
+        if self._echo: print(cmd)
         return self._c.system(cmd)
 
     def procLine(self, line):
@@ -381,7 +383,6 @@ class ftrace(object):
             self.pipe.terminate()
         else:
             for p in self.__ps:
-                print("stop %d" % p.pid)
                 p.join()
         for hook in self._stopHook:
             hook()
@@ -414,7 +415,6 @@ class ClbcClient(object):
     def _recv_lbc(s):
         d = s.recv(LBCBuffSize).decode("utf-8")
         if d[:3] != "LBC":
-            print("not lbc")
             return None
         size = d[3:11]
         try:
@@ -883,18 +883,6 @@ class CgdbParser(object):
         self._res['res']['members'] = len(self._res['res']['cell'])
         return self._res
 
-    def testStructs(self, sStruct):
-        self._setupRes()
-        with open("struct.txt", 'r') as f:
-            lines = f.read().split('\n')
-        l = self._splitStructLine(lines[0])['line']
-        name = l.split('=', 1)[1]
-        name = name.split('{', 1)[0].strip()
-        self._res['res'] = {"name": name, "size": self._showTypeSize(name), "cell": []}
-        self._parseLoop(name, lines, "")
-        self._res['res']['members'] = len(self._res['res']['cell'])
-        return self._res
-
     def getType(self, sType):
         self._setupRes()
         lines = self._showStruct(sType).split('\n')
@@ -951,19 +939,18 @@ class CgdbParser(object):
         print(self._stripGdb(show))
 
 class surftrace(ftrace):
-    def __init__(self, args, parser, show=False, arch="", stack=False, cb=None, cbOrig=None):
-        super(surftrace, self).__init__()
+    def __init__(self, args, parser, show=False, echo=True, arch="", stack=False, cb=None, cbOrig=None):
+        super(surftrace, self).__init__(show=show, echo=echo)
         self._parser = parser
         self._c = CexecCmd()
         self._probes = []
         self._events = []
-        if not show:
+        if not self._show:
             self._checkIsEmpty()
         self._arch = arch
         if self._arch == "":
             self._arch = self._getArchitecture()
         self.__args = args
-        self._show = show
         self._stack = stack
         self._reSurfProbe = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)%")
         self._reSurfRet = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)\$retval")
@@ -1036,7 +1023,7 @@ class surftrace(ftrace):
 
     def __showExpression(self, head, cmd):
         c = cmd.split(' ', 1)[1]
-        print("%s %s" % (head, c))
+        if self._echo: print("%s %s" % (head, c))
 
     def __setupEvent(self, res):
         e = res['symbol']
@@ -1049,7 +1036,7 @@ class surftrace(ftrace):
             try:
                 filter = self.__checkFilter(filter)
             except Exception as e:
-                print(e.message)
+                if self._echo: print(e.message)
                 raise InvalidArgsException('bad filter：%s' % filter)
             if self._show:
                 self.__showExpression('e', ' ' + e + 'f:%s' % filter)
@@ -1467,7 +1454,7 @@ class surftrace(ftrace):
             func = symbol.split('+')[0]
         else:
             func = symbol
-        if not self._checkAvailable(func):
+        if not self._show and not self._checkAvailable(func):
             raise InvalidArgsException("%s is not in available_filter_functions" % func)
         cmd += "%s" % symbol
         
@@ -1482,22 +1469,25 @@ class surftrace(ftrace):
                 raise ExprException("var %s is already used at previous expression" % var)
             vars.append(var)
             cmd += " %s=" % var + self._strFxpr
-        self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + cmd + "'")
+        if not self._show:
+            self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + cmd + "'")
         if res['filter'] != "":
             try:
                 filter = self.__checkFilter(res['filter'])
             except Exception as e:
-                print(e.message)
+                if self._echo: print(e.message)
                 raise InvalidArgsException('bad filter：%s' % a[-1])
             if self._show:
-                self.__showExpression(head, cmd + 'f:%s' % filter)
+                self.__showExpression(res['type'], cmd + 'f:%s' % filter)
             else:
                 fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % name
                 self._echoPath(fPath, "'%s'" % filter)
-        fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
-        self._echoPath(fPath, 1)
-        
-        self._probes.append(name)
+        if self._show:
+            print(cmd)
+        else:
+            fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+            self._echoPath(fPath, 1)
+            self._probes.append(name)
 
     def _initEvents(self, args):
         if len(args) < 1:
@@ -1557,9 +1547,13 @@ class surftrace(ftrace):
         except (InvalidArgsException, ExprException, FileNotEmptyException) as e:
             self._clearProbes()
             del self._parser
-            print(e.message)
-            traceback.print_exc()
-            raise InvalidArgsException("input error")
+            if self._echo:
+                print(e.message)
+                traceback.print_exc()
+                s = ""
+            else:
+                s = e.message
+            raise InvalidArgsException("input error, %s" % s)
         del self._parser
         if not self._show:
             super(surftrace, self).start()
@@ -1628,7 +1622,7 @@ if __name__ == "__main__":
         arch = args.arch
         if arch.startswith('x86'):
             arch = 'x86'
-    k = surftrace(traces, localParser, args.show, arch, args.stack)
+    k = surftrace(traces, localParser, show=args.show, arch=arch, stack=args.stack)
     k.start()
     if not args.show:
         k.loop()

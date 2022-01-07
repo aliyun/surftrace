@@ -195,6 +195,9 @@ class CconBase(object):
         self.view = self.setupView()
         CconBase._loop.widget = self.view
 
+    def redraw(self):
+        self._loop.draw_screen()
+
     def _regShortcut(self, k, cb, args=None, sendKey=False):
         if type(k) != str and len(k) != 1:
             raise ValueError("key: %s is not a valid value for short cut")

@@ -13,15 +13,37 @@
 """
 __author__ = 'liaozhaoyan'
 
+import sys
+import time
+
+sys.path.append("..")
+from surftrace import surftrace, setupParser
+
 import os
 import re
 import urwid
+import Queue
 from conBase import CconBase, log
 from typeChooser import CtypeChooser
 from editJprobe import CeditJprobe
 from editEvent import CeditEvent
 from saveasWidget import CsaveasWidget
 from surfExpression import *
+from surfThread import CsurfThread
+import signal
+from threading import Thread
+
+MAX_LINE = 10
+
+class CsignalTest(Thread):
+    def __init__(self, cb):
+        super(CsignalTest, self).__init__()
+        self._cb = cb
+
+    def run(self):
+        for i in range(MAX_LINE * 2):
+            self._cb("%d called." % i)
+            time.sleep(i * 0.1)
 
 class CeditExpression(CconBase):
     def __init__(self, fileName):
@@ -30,27 +52,39 @@ class CeditExpression(CconBase):
         if os.path.exists(fileName):
             with open(fileName, 'r') as f:
                 self._lines = f.read().split("\n")
+        self._loopBack = []
+        self._surf = None
         super(CeditExpression, self).__init__()
+        self._surf = None
+        self._runWidget = None
 
     def __del__(self):
         pass
 
+    def _cbSurf(self, line):
+        self._addLines(line)
+        self._loop.process_input(("surf",))
+
     def _cb_add_clk(self, widget):
+        self._stopSurt()
         w = CtypeChooser(self)
         self.switch_widget(w)
 
     def _cb_save_clk(self, widget):
+        self._stopSurt()
         s = "\n".join(self._lines)
         with open(self._fName, "w") as f:
             f.write(s)
         self._footer.set_text("save file ok.")
 
     def _cb_saveas_clk(self, widget):
+        self._stopSurt()
         s = "\n".join(self._lines)
         saveAs = CsaveasWidget(self, self._fName, s)
         self.switch_widget(saveAs)
 
     def _cb_quit_clk(self, widget):
+        self._stopSurt()
         self.exit()
 
     def setLines(self, index, line):
@@ -61,8 +95,8 @@ class CeditExpression(CconBase):
         self.fresh()
 
     def _cb_edit_clk(self, widget):
+        self._stopSurt()
         i = self._edits.index(widget)
-        # self._footer.set_text("edit click %d." % i)
         line = self._lines[i]
         try:
             res = spiltInputLine(line)
@@ -77,13 +111,51 @@ class CeditExpression(CconBase):
             self.switch_widget(event)
 
     def _cb_del_clk(self, widget):
+        self._stopSurt()
         i = self._dels.index(widget)
         self._lines.pop(i)
         self.fresh()
 
+    def _startSurf(self, widget):
+        widget.set_label("Stop")
+        self._runWidget = widget
+        i = self._runs.index(widget)
+        self._surf = CsurfThread([self._lines[i]], cb=self._cbSurf)
+        self._surf.start()
+        log(self._lines[i])
+
+    def _stopSurt(self):
+        if self._surf:
+            self._surf.stop()
+            self._surf = None
+            self._runWidget.set_label("Run")
+            self._runWidget = None
+
+    def _cb_run_clk(self, widget):
+        old = self._runWidget
+        if self._runWidget:
+            self._stopSurt()
+        if old != widget:
+            self._startSurf(widget)
+
     def _genTitle(self, l):
         shows = l.split(" ", 2)
         return shows[0] + " " + shows[1]
+
+    def _addLines(self, line):
+        if len(self._loopBack) > MAX_LINE - 1:
+            self._loopBack.pop()
+        self._loopBack.insert(0, line)
+
+    def _getLoopBack(self):
+        s = ""
+        for l in self._loopBack:
+            s += l + "\n"
+        return s[:-1]
+
+    def _updateConsole(self):
+        self._console.set_text(self._getLoopBack())
+        self.redraw()
 
     def setupView(self):
         dummy = urwid.Divider()
@@ -93,32 +165,39 @@ class CeditExpression(CconBase):
         self._es = []
         self._edits = []
         self._dels = []
+        self._runs = []
         for line in self._lines:
             label = urwid.AttrWrap(urwid.Text(self._genTitle(line)), "body")
             editButton = self._create_button("Edit", self._cb_edit_clk)
             delButton = self._create_button("Del", self._cb_del_clk)
-            es = urwid.Columns([("weight", 3, label),
+            runButton = self._create_button("Run", self._cb_run_clk)
+            es = urwid.Columns([("weight", 4, label),
                                ("weight", 1, editButton),
-                              ("weight", 1, delButton),])
+                               ("weight", 1, delButton),
+                                ("weight", 1, runButton),])
             self._edits.append(editButton.w)
             self._dels.append(delButton.w)
+            self._runs.append(runButton.w)
             self._es.append(es)
         if len(self._es):
             self._esPile = urwid.Pile(self._es)
 
         addButton = self._create_button("[a]dd", self._cb_add_clk)
-        adds = urwid.Columns([("weight", 3, urwid.Divider()),
+        adds = urwid.Columns((("weight", 3, dummy),
                                ("weight", 1, addButton),
-                              ("weight", 1, urwid.Divider()),])
+                              ("weight", 1, dummy),))
+
+        self._console = urwid.Text(self._getLoopBack())
+        con = urwid.AttrWrap(self._console, "body")
 
         saveButton = self._create_button("sav[e]", self._cb_save_clk)
         saveasButton = self._create_button("sav(e) as", self._cb_saveas_clk)
         quitButton = self._create_button("ca[n]cel", self._cb_quit_clk)
         tools = urwid.Columns([quitButton, dummy, saveasButton, dummy, saveButton])
         if self._esPile:
-            return self._setupFrame([self._esPile, urwid.Divider(), adds, urwid.Divider(), tools])
+            return self._setupFrame([self._esPile, dummy, adds, dummy, con, dummy, tools])
         else:
-            return self._setupFrame([urwid.Divider(), adds, urwid.Divider(), tools])
+            return self._setupFrame([dummy, adds, dummy, con, dummy, tools])
 
     def _showLabels(self):
         # self._footer.set_text(f"{self._esPile.contents[0][0].}")
@@ -129,6 +208,7 @@ class CeditExpression(CconBase):
     def key_proc(self, key):
         if len(key) == 1:
             if key.lower() == 'w' and self._esPile is not None and len(self._lines) > 1:
+                self._stopSurt()
                 i = self._esPile.focus_position
                 if i == len(self._lines) - 1:
                     self._lines[i], self._lines[i - 1] = self._lines[i - 1], self._lines[i]
@@ -136,15 +216,20 @@ class CeditExpression(CconBase):
                     self._lines[i], self._lines[i + 1] = self._lines[i + 1], self._lines[i]
                 self._showLabels()
             elif key.lower() == 'e' and self._esPile is not None and len(self._lines) > 1:
+                self._stopSurt()
                 i = self._esPile.focus_position
                 l = self._lines.pop(i)
                 self._lines.append(l)
                 self._showLabels()
             elif key.lower() == 'b' and self._esPile is not None and len(self._lines) > 1:
+                self._stopSurt()
                 i = self._esPile.focus_position
                 l = self._lines.pop(i)
                 self._lines.insert(0, l)
                 self._showLabels()
+        elif key == "surf":
+            self._footer.set_text("surf")
+            self._updateConsole()
 
 if __name__ == "__main__":
     pass

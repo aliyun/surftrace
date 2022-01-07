@@ -188,7 +188,7 @@ echo 0 > /sys/kernel/debug/tracing/tracing_on
 
 ## 3.3 结构体级联和扩展
 
-仍以 _do_fork 和 struct task_struct为例，在一个结构化表达式中，uesrs=%0**S**~(struct task_struct)->mm->mm_users，入参编号%0与连接符~中间增加了一个S字母来指定整数显示格式，共有SUX三种类型，分别对应有符号十进制、无符号十进制和十六进制。如果不指定，默认是X，16进制
+仍以 _do_fork 和 struct task_struct为例，在一个结构化表达式中，uesrs=%0->mm->mm_users，入参编号%0与连接符~中间增加了一个S字母来指定整数显示格式，共有SUX三种类型，分别对应有符号十进制、无符号十进制和十六进制。如果不指定，默认是X，16进制
 
 ```bash
 #级联指针和指定整数数据格式
