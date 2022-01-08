@@ -399,7 +399,7 @@ class CargsGuide(CconBase):
         expr = splitExpr(text)[-1]
         try:
             return self.__getExprStruct(expr)
-        except ExprException as e:
+        except (ExprException, DbException) as e:
             self._footer.set_text("expression %s error, %s" % (expr, e.message))
 
     def __checkFormat(self, e):
@@ -522,7 +522,7 @@ class CargsGuide(CconBase):
                 else:
                     self._footer.set_text("get type %s failed" % sStruct)
             else:
-                self._footer.set_text("some logic erro in %s" % str(inspect.stack()[1]))
+                self._footer.set_text("some logic erro in %s, cell:%s" % (str(inspect.stack()[1]), str(cell)))
 
     def _cb_cancel_clk(self, widget):
         self.switch_widget(self._parent)
@@ -537,7 +537,9 @@ class CargsGuide(CconBase):
 
     def _blankTips(self):
         s = "You can declare a variable to get the parameter information. Note that there should be no spaces in a single expression, and the expressions should be separated by space.\n"
-        s += "eg: comm=%0~(struct task_struct *)->comm ip_src=%1~$(struct iphdr *)l3->saddr"
+        s += "eg. to visit struct member: comm=%0->comm\n"
+        s += "    for skb_buff: ip_src=@(struct iphdr *)l3%1->saddr.\n"
+        s += "    Cast pointer type conversion: segs=!(struct tcp_sock *)%1->gso_segs."
         return s
 
     def _parseFunc(self):
@@ -545,7 +547,7 @@ class CargsGuide(CconBase):
         s += "    name: %s\n" % self._func['func']
         s += "    args: %%0, type: %s\n" % self._func['args'][0]
         for i, t in enumerate(self._func['args'][1:]):
-            s += "          %%{i+1}, type: %s\n" % t
+            s += "          %%%d, type: %s\n" % (i + 1, t)
         s += "    return type: %s\n" % self._func['ret']
         s += "     declare in: %s:%d" % (self._func['file'], self._func['line'])
         return s

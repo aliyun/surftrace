@@ -93,7 +93,7 @@ class CconBase(object):
         return self._client.getFunc(func)
 
     def dbGetStruct(self, sStruct):
-        return self._client.getStructs(sStruct)
+        return self._client.getStruct(sStruct)
 
     def dbGetType(self, sType):
         return self._client.getType(sType)

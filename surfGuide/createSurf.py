@@ -27,8 +27,8 @@ class CcreateSurf(CconBase):
 
     def _cb_create_clk(self, widget):
         name = self._eSurf.get_edit_text()
-        m = self._reFile.match(name)
-        if m and len(m[0]) == len(name):
+        m = self._reFile.search(name)
+        if m and len(m.group()) == len(name):
             path = os.path.join(self._dir, name)
             if not path.endswith(".surf"):
                 path += ".surf"
