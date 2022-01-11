@@ -123,6 +123,12 @@ class ExprException(Exception):
         super(ExprException, self).__init__(message)
         self.message = message
 
+class ExecException(Exception):
+    def __init__(self, message):
+        super(ExecException, self).__init__(message)
+        self.message = message
+
+
 # copy from surf expression.py
 probeReserveVars = ('common_pid', 'common_preempt_count', 'common_flags', 'common_type')
 archRegd = {'x86': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
@@ -250,7 +256,7 @@ class CexecCmd(object):
 
     def system(self, cmds):
         cmds = cmds.replace('\0', '').strip()
-        return os.popen(cmds)
+        return os.popen(cmds).read(8192)
 
 class CasyncCmdQue(object):
     def __init__(self, cmd):
@@ -341,17 +347,37 @@ class ftrace(object):
         pTrace = self.baseDir + "/tracing/instances/surftrace/trace"
         self._echoPath(pTrace)
 
+    def _transEcho(self, value):
+        value = re.sub(r"[\"\']", "", value)
+        return value
+
     def _echoPath(self, path, value=""):
         cmd = "echo %s > %s" % (value, path)
         saveCmd(cmd)
         if self._echo: print(cmd)
-        return self._c.system(cmd)
+
+        fd = os.open(path, os.O_WRONLY)
+        v = self._transEcho(value)
+        try:
+            os.write(fd, v)
+        except OSError as e:
+            raise InvalidArgsException("set arg %s to %s failed, return %s." % (v, path, e.message))
+        finally:
+            os.close(fd)
 
     def _echoDPath(self, path, value=""):
         cmd = "echo %s >> %s" % (value, path)
         saveCmd(cmd)
         if self._echo: print(cmd)
-        return self._c.system(cmd)
+
+        fd = os.open(path, os.O_WRONLY|os.O_APPEND)
+        v = self._transEcho(value)
+        try:
+            os.write(fd, v)
+        except OSError as e:
+            raise InvalidArgsException("set arg %s to %s failed, return %s." %(v, path, e.strerror))
+        finally:
+            os.close(fd)
 
     def procLine(self, line):
         print(line)
@@ -939,10 +965,9 @@ class CgdbParser(object):
         print(self._stripGdb(show))
 
 class surftrace(ftrace):
-    def __init__(self, args, parser, show=False, echo=True, arch="", stack=False, cb=None, cbOrig=None):
+    def __init__(self, args, parser, show=False, echo=True, arch="", stack=False, cb=None, cbOrig=None, cbShow=None):
         super(surftrace, self).__init__(show=show, echo=echo)
         self._parser = parser
-        self._c = CexecCmd()
         self._probes = []
         self._events = []
         if not self._show:
@@ -971,6 +996,9 @@ class surftrace(ftrace):
         self._cb = cb
         self._cbOrig = cbOrig
 
+        if cbShow: self._cbShow = cbShow
+        else: self._cbShow = self._showFxpr
+
     def _getArchitecture(self):
         lines = self._c.cmd('lscpu').split('\n')
         for line in lines:
@@ -988,12 +1016,12 @@ class surftrace(ftrace):
             return
         for p in self._probes:
             fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + p + "/enable"
-            self._echoPath(fPath, 0)
+            self._echoPath(fPath, "0")
             cmd = '-:%s' % p
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
         self._probes = []
         for ePath in self._events:
-            self._echoPath(ePath, 0)
+            self._echoPath(ePath, "0")
         self._events = []
         
     def __transFilter(self, filter, i, beg):
@@ -1021,9 +1049,12 @@ class surftrace(ftrace):
             ret += self.__transFilter(filter, l, beg)
         return ret
 
-    def __showExpression(self, head, cmd):
-        c = cmd.split(' ', 1)[1]
-        if self._echo: print("%s %s" % (head, c))
+    def _showFxpr(self, res):
+        print(res)
+
+    def __showExpression(self, sType, fxpr, filter=""):
+        res = {"type": sType, "fxpr": fxpr, "filter": filter}
+        self._cbShow(res)
 
     def __setupEvent(self, res):
         e = res['symbol']
@@ -1039,17 +1070,17 @@ class surftrace(ftrace):
                 if self._echo: print(e.message)
                 raise InvalidArgsException('bad filter：%s' % filter)
             if self._show:
-                self.__showExpression('e', ' ' + e + 'f:%s' % filter)
+                self.__showExpression('e', e, filter)
                 return
             else:
                 fPath = os.path.join(eDir, 'filter')
                 self._echoPath(fPath, "'" + filter + "'")
         if self._show:
-            self.__showExpression('e', ' ' + e)
+            self.__showExpression('e', e)
             return
         else:
             ePath = os.path.join(eDir, 'enable')
-            self._echoPath(ePath, 1)
+            self._echoPath(ePath, "1")
             self._events.append(ePath)
 
     def _memINStruct(self, mem, tStruct):
@@ -1194,12 +1225,12 @@ class surftrace(ftrace):
             if reg.isdigit():
                 argi = int(reg)
             else:
-                argi = regIndex(reg)
+                argi = regIndex(reg, self._arch)
             if types == '':
                 argt = self._func['args'][argi]
             else:
                 argt = types
-            regArch = transReg(argi)
+            regArch = transReg(argi, self._arch)
         else:
             types, xpr = expr.split('$retval')
             if types == '':
@@ -1471,23 +1502,24 @@ class surftrace(ftrace):
             cmd += " %s=" % var + self._strFxpr
         if not self._show:
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + cmd + "'")
+            self._probes.append(name)
         if res['filter'] != "":
             try:
                 filter = self.__checkFilter(res['filter'])
             except Exception as e:
                 if self._echo: print(e.message)
-                raise InvalidArgsException('bad filter：%s' % a[-1])
+                raise InvalidArgsException('bad filter：%s' % filter)
             if self._show:
-                self.__showExpression(res['type'], cmd + 'f:%s' % filter)
+                self.__showExpression(res['type'], cmd, filter)
             else:
                 fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % name
                 self._echoPath(fPath, "'%s'" % filter)
-        if self._show:
-            print(cmd)
         else:
-            fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
-            self._echoPath(fPath, 1)
-            self._probes.append(name)
+            if self._show:
+                self.__showExpression(res['type'], cmd)
+            else:
+                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+                self._echoPath(fPath, "1")
 
     def _initEvents(self, args):
         if len(args) < 1:
@@ -1502,9 +1534,9 @@ class surftrace(ftrace):
             fPath = self.baseDir + "/tracing/options/stacktrace"
         if self._stack:
             self._events.append(fPath)
-            self._echoPath(fPath, 1)
+            self._echoPath(fPath, "1")
         else:
-            self._echoPath(fPath, 0)
+            self._echoPath(fPath, "0")
 
     def _checkIsEmpty(self):
         if not os.path.exists(self.baseDir + '/tracing/instances/' + 'surftrace'):
@@ -1517,7 +1549,7 @@ class surftrace(ftrace):
 
     def _checkAvailable(self, name):
         cmd = "cat " + self.baseDir + "/tracing/available_filter_functions |grep " + name
-        ss = self._c.system(cmd).read().strip()
+        ss = self._c.system(cmd).strip()
         for res in ss.split('\n'):
             if ':' in res:
                 res = res.split(":", 1)[1]
@@ -1566,12 +1598,12 @@ class surftrace(ftrace):
         super(surftrace, self).stop()
         self._clearProbes()
 
-def setupParser(mode="remote", remote_ip="pylcc.openanolis.cn", gdb="./gdb", vmlinux=""):
+def setupParser(mode="remote", db="", remote_ip="pylcc.openanolis.cn", gdb="./gdb", vmlinux=""):
     if mode not in ("remote", "local", "gdb"):
         raise InvalidArgsException("bad parser mode: %s" % mode)
 
     if mode == "local":
-        return CdbParser()
+        return CdbParser(db)
     if mode == "remote":
         return ClbcClient(server=remote_ip)
     elif mode == "gdb":
@@ -1587,6 +1619,7 @@ if __name__ == "__main__":
     )
     parser.add_argument('-v', '--vmlinux', type=str, dest='vmlinux', default="", help='set vmlinux path.')
     parser.add_argument('-m', '--mode', type=str, dest='mode', default="remote", help='set arg parser, fro')
+    parser.add_argument('-d', '--db', type=str, dest='db', default="", help='set local db path.')
     parser.add_argument('-r', '--rip', type=str, dest='rip', default="pylcc.openanolis.cn", help='set remote server ip, remote mode only.')
     parser.add_argument('-f', '--file', type=str, dest='file', help='set input args path.')
     parser.add_argument('-g', '--gdb', type=str, dest='gdb', default="./gdb", help='set gdb exe file path.')
@@ -1600,7 +1633,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     traces = args.traces
 
-    localParser = setupParser(args.mode, args.rip, args.gdb, args.vmlinux)
+    localParser = setupParser(args.mode, args.db, args.rip, args.gdb, args.vmlinux)
 
     if args.line:
         localParser.parserLine(args.line)
@@ -1617,7 +1650,7 @@ if __name__ == "__main__":
 
     arch = ""
     if args.arch:
-        if arch not in ('x86', 'x86_64', 'arm', 'aarch64'):
+        if arch not in ('x86', 'x86_64', 'aarch64'):
             raise InvalidArgsException('not support architecture %s' % args.arch)
         arch = args.arch
         if arch.startswith('x86'):

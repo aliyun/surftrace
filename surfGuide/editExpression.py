@@ -17,12 +17,9 @@ import sys
 import time
 
 sys.path.append("..")
-from surftrace import surftrace, setupParser
 
 import os
-import re
 import urwid
-import Queue
 from conBase import CconBase, log
 from typeChooser import CtypeChooser
 from editJprobe import CeditJprobe
@@ -30,20 +27,8 @@ from editEvent import CeditEvent
 from saveasWidget import CsaveasWidget
 from surfExpression import *
 from surfThread import CsurfThread
-import signal
-from threading import Thread
 
 MAX_LINE = 10
-
-class CsignalTest(Thread):
-    def __init__(self, cb):
-        super(CsignalTest, self).__init__()
-        self._cb = cb
-
-    def run(self):
-        for i in range(MAX_LINE * 2):
-            self._cb("%d called." % i)
-            time.sleep(i * 0.1)
 
 class CeditExpression(CconBase):
     def __init__(self, fileName):
@@ -69,6 +54,10 @@ class CeditExpression(CconBase):
         self._stopSurt()
         w = CtypeChooser(self)
         self.switch_widget(w)
+
+    def _cb_pack_clk(self, widget):
+        self._stopSurt()
+        self._footer.set_text("pack click.")
 
     def _cb_save_clk(self, widget):
         self._stopSurt()
@@ -139,6 +128,7 @@ class CeditExpression(CconBase):
             self._startSurf(widget)
 
     def _genTitle(self, l):
+        log("line: %s" % l)
         shows = l.split(" ", 2)
         return shows[0] + " " + shows[1]
 
@@ -192,12 +182,14 @@ class CeditExpression(CconBase):
 
         saveButton = self._create_button("sav[e]", self._cb_save_clk)
         saveasButton = self._create_button("sav(e) as", self._cb_saveas_clk)
+        packButton = self._create_button("[p]ackage", self._cb_pack_clk)
         quitButton = self._create_button("ca[n]cel", self._cb_quit_clk)
-        tools = urwid.Columns([quitButton, dummy, saveasButton, dummy, saveButton])
+        tool1 = urwid.Columns([dummy, dummy, dummy, dummy, packButton])
+        tool2 = urwid.Columns([quitButton, dummy, saveasButton, dummy, saveButton])
         if self._esPile:
-            return self._setupFrame([self._esPile, dummy, adds, dummy, con, dummy, tools])
+            return self._setupFrame([self._esPile, dummy, adds, dummy, con, dummy, tool1, dummy, tool2])
         else:
-            return self._setupFrame([dummy, adds, dummy, con, dummy, tools])
+            return self._setupFrame([dummy, adds, dummy, con, dummy, tool1, dummy, tool2])
 
     def _showLabels(self):
         # self._footer.set_text(f"{self._esPile.contents[0][0].}")

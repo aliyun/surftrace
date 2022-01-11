@@ -23,7 +23,7 @@ from multiprocessing import Queue as pQueue
 from threading import Thread
 
 sys.path.append("..")
-from surftrace import surftrace, setupParser
+from surftrace import surftrace, setupParser, InvalidArgsException
 
 class CsubSurf(Process):
     def __init__(self, cmds, log="/dev/null"):
@@ -51,7 +51,11 @@ class CsubSurf(Process):
         self._dupStdout(self._log)
         parser = setupParser()
         surf = surftrace(self._cmds, parser, echo=False, cb=self._cb)
-        surf.start()
+        try:
+            surf.start()
+        except InvalidArgsException as e:
+            self._cb("input failed: %s" % e.message)
+            return
         self._cb("surftrace worked.")
         surf.loop()
 
@@ -72,6 +76,9 @@ class CsurfThread(Thread):
     def _defaultCb(self, line):
         print(line)
 
+    def surfAlive(self):
+        return self._surf.is_alive()
+
     def run(self):
         self._surf.start()
         while True:
@@ -89,9 +96,9 @@ def cb(line):
     print("cb." + line)
 
 if __name__ == "__main__":
-    t = CsurfThread(["r ip_local_out f:common_pid==1"], cb=cb)
+    t = CsurfThread(["r ip_local_out f:common_pi==1"], log="op.log", cb=cb)
     t.start()
-    time.sleep(10)
+    time.sleep(1)
     t.stop()
     print("ok.")
     time.sleep(1)
