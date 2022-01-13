@@ -15,26 +15,10 @@ __author__ = 'liaozhaoyan'
 
 import sys
 import os
-sys.path.append("..")
-
-import shlex
-from subprocess import PIPE, Popen
-from surftrace import surftrace, InvalidArgsException
+from surftrace import surftrace, InvalidArgsException, CexecCmd
 import json
-from zlib import decompress, compress, Z_BEST_COMPRESSION
+from zlib import decompress
 from base64 import b64decode
-
-class CexecCmd(object):
-    def __init__(self):
-        pass
-
-    def cmd(self, cmds):
-        p = Popen(shlex.split(cmds), stdout=PIPE)
-        return p.stdout.read().strip()
-
-    def system(self, cmds):
-        cmds = cmds.replace('\0', '').strip()
-        return os.popen(cmds).read(8192)
 
 pubString = "to_be_replaced."
 class CpubLoader(object):
