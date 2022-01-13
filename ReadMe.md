@@ -59,7 +59,7 @@ p __netif_receive_skb_core proto=+0x9(+0xf0(%di)):x8 ip_src=+0xc(+0xf0(%di)):x32
 下面的条件三选一即可
 - 1、公开发行版内核，可以访问 pylcc.openanolis.cn
 - 2、公开发行版内核，已经从 http://pylcc.openanolis.cn/db/ 下载了 对应内核的db文件
-- 3.1、环境上安装了gdb 版本大于 9，如果是x86 平台，可以直接从 http://pylcc.openanolis.cn/gdb/x64/gdb 下载
+- 3.1、环境上安装了gdb 版本大于 9，如果是x86 平台，可以直接从 http://pylcc.openanolis.cn/gdb/ 下载
 - 3.2、安装了对应内核的 vmlinux （结构化表达式依赖，非必须）
 
 
