@@ -14,7 +14,8 @@
 __author__ = 'liaozhaoyan'
 
 probeReserveVars = ('common_pid', 'common_preempt_count', 'common_flags', 'common_type')
-archRegd = {'x86': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
+archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
+            'x86': ('di', 'si', 'dx', 'cx'),
             'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'),}
 
 class ExprException(Exception):

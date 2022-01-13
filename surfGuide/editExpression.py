@@ -25,6 +25,7 @@ from typeChooser import CtypeChooser
 from editJprobe import CeditJprobe
 from editEvent import CeditEvent
 from saveasWidget import CsaveasWidget
+from packProduct import CpackProduct
 from surfExpression import *
 from surfThread import CsurfThread
 
@@ -57,7 +58,8 @@ class CeditExpression(CconBase):
 
     def _cb_pack_clk(self, widget):
         self._stopSurt()
-        self._footer.set_text("pack click.")
+        w = CpackProduct(self, self._lines, self._fName)
+        self.switch_widget(w)
 
     def _cb_save_clk(self, widget):
         self._stopSurt()
@@ -128,7 +130,6 @@ class CeditExpression(CconBase):
             self._startSurf(widget)
 
     def _genTitle(self, l):
-        log("line: %s" % l)
         shows = l.split(" ", 2)
         return shows[0] + " " + shows[1]
 

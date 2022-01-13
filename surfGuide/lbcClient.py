@@ -21,7 +21,7 @@ import shlex
 from subprocess import PIPE, Popen
 
 LBC_COMPILE_PORT = 7654
-buffSize = 80 * 1024 * 1024
+LBCBuffSize = 80 * 1024 * 1024
 
 class CexecCmd(object):
     def __init__(self):
@@ -41,14 +41,27 @@ class DbException(Exception):
         self.message = message
 
 class ClbcClient(object):
-    def __init__(self, ver="", server="pylcc.openanolis.cn"):
+    def __init__(self, server="pylcc.openanolis.cn", ver="", arch=""):
         super(ClbcClient, self).__init__()
+        c = CexecCmd()
         if ver == "":
-            c = CexecCmd()
             ver = c.cmd('uname -r')
+        if arch == "":
+            arch = self._getArchitecture(c)
         self._server = server
         self._ver = ver
+        self._arch = arch
         self._fastOff = False
+
+    def _getArchitecture(self, c):
+        lines = c.cmd('lscpu').split('\n')
+        for line in lines:
+            if line.startswith("Architecture"):
+                arch = line.split(":", 1)[1].strip()
+                if arch.startswith("arm"):
+                    return "arm"
+                return arch
+        return "Unkown"
 
     def _setupSocket(self):
         addr = (self._server, LBC_COMPILE_PORT)
@@ -63,19 +76,18 @@ class ClbcClient(object):
 
     @staticmethod
     def _recv_lbc(s):
-        d = s.recv(buffSize).decode("utf-8")
+        d = s.recv(LBCBuffSize).decode("utf-8")
         if d[:3] != "LBC":
-            print("not lbc")
             return None
         size = d[3:11]
         try:
             size = int(size, 16) + 11
         except:
             raise DbException("bad lbc Exception, %s" % size)
-        if size > buffSize:
+        if size > LBCBuffSize:
             return None
         while len(d) < size:
-            d += s.recv(buffSize).decode("utf-8")
+            d += s.recv(LBCBuffSize).decode("utf-8")
         res = json.loads(d[11:])
         if res['log'] != "ok.":
             raise DbException('db set return %s' % res["log"])
@@ -91,7 +103,7 @@ class ClbcClient(object):
         self._send_lbc(s, json.dumps(dSend))
         return self._recv_lbc(s)
 
-    def getStructs(self, sStruct):
+    def getStruct(self, sStruct):
         s = self._setupSocket()
         dSend = {"ver": self._ver,
                  "cmd": "struct",

@@ -40,7 +40,7 @@ class CsurfGuide(CconBase):
         if os.path.exists(fName):
             self._footer.set_text("db file %s is already downloaded." % fName)
             return
-        url = "http://pylcc.openanolis.cn/db/x64/info-%s.db" % ver
+        url = "http://pylcc.openanolis.cn/db/x86_64/info-%s.db" % ver
         db = requests.get(url)
         with open(fName, "wb") as f:
             f.write(db.content)

@@ -101,10 +101,10 @@ class CconBase(object):
     def setupDb(self, client):
         CconBase._client = client
 
-    def _create_edit(self, label, text, fn=None):
+    def _create_edit(self, label, text, cb=None):
         w = urwid.Edit(label, text)
-        if fn:
-            urwid.connect_signal(w, 'change', fn)
+        if cb:
+            urwid.connect_signal(w, 'change', cb)
         w = urwid.AttrWrap(w, 'edit')
         return w
 
@@ -156,6 +156,28 @@ class CconBase(object):
         else:
             radioWids = urwid.Columns(typeList)
         return radioWids, radioGroup
+
+    def _cb_check_set(self, widget):
+        widget.set_state(True)
+
+    def _create_check(self, label, cb=None):
+        res = urwid.CheckBox(label, on_state_change=cb)
+        self._checkShortcut(label, self._cb_check_set, res)
+        return res
+
+    def _create_checks(self, ckList, vertical=True, cb=None, cb_focus=None):
+        checkGroup = []
+        wids = []
+        for txt in ckList:
+            w = self._create_check(txt, cb)
+            checkGroup.append(w)
+            wids.append(urwid.AttrWrap(w, 'buttn', 'buttnf'))
+        if vertical:
+            checkWids = CfocusPile(wids, cb_focus_change=cb_focus)
+        else:
+            checkWids = urwid.Columns(wids, cb_focus_change=cb_focus)
+        return checkWids, checkGroup
+
 
     def _getRadioSelect(self, radioGroup):
         for index, radio in enumerate(radioGroup):

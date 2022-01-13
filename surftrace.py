@@ -131,7 +131,8 @@ class ExecException(Exception):
 
 # copy from surf expression.py
 probeReserveVars = ('common_pid', 'common_preempt_count', 'common_flags', 'common_type')
-archRegd = {'x86': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
+archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
+            'x86': ('di', 'si', 'dx', 'cx'),
             'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'),}
 
 def maxNameString(cells, t):
@@ -417,14 +418,27 @@ class ftrace(object):
         signal.pause()
 
 class ClbcClient(object):
-    def __init__(self, ver="", server="pylcc.openanolis.cn"):
+    def __init__(self, server="pylcc.openanolis.cn", ver="", arch=""):
         super(ClbcClient, self).__init__()
+        c = CexecCmd()
         if ver == "":
-            c = CexecCmd()
             ver = c.cmd('uname -r')
+        if arch == "":
+            arch = self._getArchitecture(c)
         self._server = server
         self._ver = ver
+        self._arch = arch
         self._fastOff = False
+
+    def _getArchitecture(self, c):
+        lines = c.cmd('lscpu').split('\n')
+        for line in lines:
+            if line.startswith("Architecture"):
+                arch = line.split(":", 1)[1].strip()
+                if arch.startswith("arm"):
+                    return "arm"
+                return arch
+        return "Unkown"
 
     def _setupSocket(self):
         addr = (self._server, LBC_COMPILE_PORT)
@@ -458,7 +472,8 @@ class ClbcClient(object):
 
     def getFunc(self, func, ret=None, arg=None):
         s = self._setupSocket()
-        dSend = {"ver": self._ver,
+        dSend = {"arch": self._arch,
+                 "ver": self._ver,
                  "cmd": "func",
                  "func": func}
         if ret: dSend['ret'] = ret
@@ -468,7 +483,8 @@ class ClbcClient(object):
 
     def getStruct(self, sStruct):
         s = self._setupSocket()
-        dSend = {"ver": self._ver,
+        dSend = {"arch": self._arch,
+                 "ver": self._ver,
                  "cmd": "struct",
                  "struct": sStruct}
         self._send_lbc(s, json.dumps(dSend))
@@ -478,7 +494,8 @@ class ClbcClient(object):
         s = self._setupSocket()
         if "*" in t:
             t = '_'
-        dSend = {"ver": self._ver,
+        dSend = {"arch": self._arch,
+                 "ver": self._ver,
                  "cmd": "type",
                  "type": t}
         self._send_lbc(s, json.dumps(dSend))
@@ -687,10 +704,10 @@ class CgdbParser(object):
         if res is None:
             raise FileNotExistException("%s, unknown gdb version." % lines[0])
         major, minor = res.group().split(".")
-        if int(major) < 9:
-            s = "you gdb version is %s, lower than 9.x." % res.group()
+        if int(major) < 8:
+            s = "you gdb version is %s, lower than 8.x." % res.group()
             s += " A high version of the gdb is required to achieve full functionality.\n"
-            s += "if your arch is x86_64, you can wget http://pylcc.openanolis.cn/gdb/x64/gdb then set gdb path args."
+            s += "if your arch is x86_64, you can wget http://pylcc.openanolis.cn/gdb/ then set gdb path args."
             raise FileNotExistException(s)
 
     def __getVmlinuxPath(self):
@@ -975,23 +992,24 @@ class surftrace(ftrace):
         self._arch = arch
         if self._arch == "":
             self._arch = self._getArchitecture()
-        self.__args = args
+        self._args = args
         self._stack = stack
-        self._reSurfProbe = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)%")
-        self._reSurfRet = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)\$retval")
-        self._reLayer = re.compile(r"l[234]")
-        self._reBrackets = re.compile(r"(?<=\().+?(?=\))")
-        self._reSquareBrackets = re.compile(r"(?<=\[).+?(?=\])")
-        self._netStructs = ('struct ethhdr', 'struct iphdr', 'struct icmphdr', 'struct tcphdr', 'struct udphdr')
-        self._netDatas = {'cdata': (1, "unsigned char"),
-                          'sdata': (2, "unsigned short"),
-                          'ldata': (4, "unsigned int"),
-                          'qdata': (8, "unsigned long"),
-                          'Sdata': (1, "char"),
-                          }
-        self._strFxpr = ""
-        self.__format = 'u'
-        self._func = None
+        if isinstance(args, list):
+            self._reSurfProbe = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)%")
+            self._reSurfRet = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)\$retval")
+            self._reLayer = re.compile(r"l[234]")
+            self._reBrackets = re.compile(r"(?<=\().+?(?=\))")
+            self._reSquareBrackets = re.compile(r"(?<=\[).+?(?=\])")
+            self._netStructs = ('struct ethhdr', 'struct iphdr', 'struct icmphdr', 'struct tcphdr', 'struct udphdr')
+            self._netDatas = {'cdata': (1, "unsigned char"),
+                              'sdata': (2, "unsigned short"),
+                              'ldata': (4, "unsigned int"),
+                              'qdata': (8, "unsigned long"),
+                              'Sdata': (1, "char"),
+                              }
+            self._strFxpr = ""
+            self.__format = 'u'
+            self._func = None
 
         self._cb = cb
         self._cbOrig = cbOrig
@@ -1187,6 +1205,8 @@ class surftrace(ftrace):
             res = self._parser.getStruct(stripPoint(sStruct))
         except DbException as e:
             raise ExprException('db get %s return %s' % (sStruct, e.message))
+        if res['log'] != "ok.":
+            raise DbException('db get %s return %s' % (sStruct, res['log']))
         if 'res' in res and res['res'] is not None and res['res']['name'] in self._netStructs:
             offset = res['res']['size']
             for k, v in self._netDatas.items():
@@ -1200,6 +1220,8 @@ class surftrace(ftrace):
             res = self._parser.getType(sType)
         except DbException as e:
             raise ExprException('db get %s return %s' % (sType, e.message))
+        if res['log'] != "ok.":
+            raise DbException('db get %s return %s' % (sType, res['log']))
         return res
     
     def _getVmFunc(self, func):
@@ -1207,6 +1229,8 @@ class surftrace(ftrace):
             res = self._parser.getFunc(func)
         except DbException as e:
             raise ExprException('db get %s return %s' % (func, e.message))
+        if res['log'] != "ok.":
+            raise DbException('db get %s return %s' % (func, res['log']))
         return res
     
     def __getExprArgi(self, e): 
@@ -1462,6 +1486,21 @@ class surftrace(ftrace):
             raise ExprException("last member is nested struct type, which is not completed.")
         return res
 
+    def __checkSymbol(self, symbol):
+        offset = None
+        if '+' in symbol:
+            func, offset = symbol.split('+', 1)
+        else:
+            func = symbol
+        if not self._show:
+            func = self._checkAvailable(func)
+            if func is None:
+                raise InvalidArgsException("%s is not in available_filter_functions" % func)
+        if offset:
+            return "%s+%s" % (func, offset)
+        else:
+            return func
+
     def __initEvents(self, i, arg):
         arg = arg.strip('\n')
         if len(arg) == 0:
@@ -1477,17 +1516,15 @@ class surftrace(ftrace):
         name = "f%d" % i
         cmd = "%s:f%d " % (res['type'], i)
         symbol = res['symbol']
+
+        func = symbol
+        if "+" in func:
+            func = func.split("+", 1)[0]
         try:
-            self._func = self._getVmFunc(symbol)['res'][0]
-        except (TypeError, KeyError):
+            self._func = self._getVmFunc(func)['res'][0]
+        except (TypeError, KeyError, IndexError):
             raise DbException("no %s debuginfo  in file." % symbol)
-        if '+' in symbol:
-            func = symbol.split('+')[0]
-        else:
-            func = symbol
-        if not self._show and not self._checkAvailable(func):
-            raise InvalidArgsException("%s is not in available_filter_functions" % func)
-        cmd += "%s" % symbol
+        cmd += self.__checkSymbol(symbol)
         
         vars = []
         for expr in splitExpr(res['args']):
@@ -1508,7 +1545,7 @@ class surftrace(ftrace):
                 filter = self.__checkFilter(res['filter'])
             except Exception as e:
                 if self._echo: print(e.message)
-                raise InvalidArgsException('bad filter：%s' % filter)
+                raise InvalidArgsException('bad filter：%s' % res['filter'])
             if self._show:
                 self.__showExpression(res['type'], cmd, filter)
             else:
@@ -1521,14 +1558,7 @@ class surftrace(ftrace):
                 fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
                 self._echoPath(fPath, "1")
 
-    def _initEvents(self, args):
-        if len(args) < 1:
-            raise InvalidArgsException("no args.")
-        for i, arg in enumerate(args):
-            self.__initEvents(i, arg)
-        if self._show:
-            return
-
+    def _setupStack(self):
         fPath = self.baseDir + "/tracing/instances/surftrace/options/stacktrace"
         if not os.path.exists(fPath):
             fPath = self.baseDir + "/tracing/options/stacktrace"
@@ -1537,6 +1567,16 @@ class surftrace(ftrace):
             self._echoPath(fPath, "1")
         else:
             self._echoPath(fPath, "0")
+
+    def _initEvents(self, args):
+        if len(args) < 1:
+            raise InvalidArgsException("no args.")
+        for i, arg in enumerate(args):
+            self.__initEvents(i, arg)
+        if self._show:
+            return
+
+        self._setupStack()
 
     def _checkIsEmpty(self):
         if not os.path.exists(self.baseDir + '/tracing/instances/' + 'surftrace'):
@@ -1556,8 +1596,10 @@ class surftrace(ftrace):
             if ' [' in res:  #for ko symbol
                 res = res.split(" [", 1)[0]
             if res == name:
-                return True
-        return False
+                return res
+            elif res.startswith("%s.isra" % name):
+                return res
+        return None
     
     def _cbLine(self, line):
         print("%s" % line)
@@ -1573,9 +1615,9 @@ class surftrace(ftrace):
             o += s + ' '
         self._cb(o)
 
-    def start(self):
+    def _setupEvents(self):
         try:
-            self._initEvents(self.__args)
+            self._initEvents(self._args)
         except (InvalidArgsException, ExprException, FileNotEmptyException) as e:
             self._clearProbes()
             del self._parser
@@ -1585,27 +1627,90 @@ class surftrace(ftrace):
                 s = ""
             else:
                 s = e.message
-            raise InvalidArgsException("input error, %s" % s)
+            raise InvalidArgsException("input error, %s." % s)
+
+    def _splitFxpr(self, fxpr):
+        head, xpr = fxpr.split(" ", 1)
+        res = {"name": head.split(':', 1)[1]}
+        if ' ' in xpr:
+            symbol, pr = xpr.split(" ", 1)
+        else:
+            symbol = xpr
+            pr = ""
+        if "+" in symbol:
+            raise InvalidArgsException("In-segment offsets are not currently supported.")
+        func = self._checkAvailable(symbol)
+        if func is None:
+            raise InvalidArgsException("symbol %s is not in this kernel." % symbol)
+        res['func'] = func
+        res['fxpr'] = "%s %s" % (head, func)
+        if pr != "":
+            res['fxpr'] += " %s" % pr
+        return res
+
+    def _initFxpr(self, i, res):
+        if res['type'] == 'e':
+            res['symbol'] = res['fxpr']
+            return self.__setupEvent(res)
+        resFxpr = self._splitFxpr(res['fxpr'])
+
+        self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + resFxpr['fxpr'] + "'")
+        self._probes.append(resFxpr['name'])
+        if res['filter'] != "":
+            fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % resFxpr['name']
+            self._echoPath(fPath, "'%s'" % res['filter'])
+
+        fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + resFxpr['name'] + "/enable"
+        self._echoPath(fPath, "1")
+
+    def _setupFxprs(self):
+        fxprs = self._args['fxpr']
+        for i, res in enumerate(fxprs):
+            try:
+                self._initFxpr(i, res)
+            except (InvalidArgsException, ExprException, FileNotEmptyException) as e:
+                self._clearProbes()
+                if self._echo:
+                    print(e.message)
+                    traceback.print_exc()
+                s = e.message
+                raise InvalidArgsException("input error, %s" % s)
+        self._setupStack()
+
+    def start(self):
+        if isinstance(self._args, list):
+            self._setupEvents()
+        elif isinstance(self._args, dict):
+            self._setupFxprs()
+        else:
+            raise InvalidArgsException("input type: %s, is not support." % type(self._args))
+
         del self._parser
         if not self._show:
-            super(surftrace, self).start()
             if self._cbOrig:
                 self.pipe.newCb(self._cbOrig)
             if self._cb is None:
                 self._cb = self._cbLine
+            super(surftrace, self).start()
 
     def stop(self):
-        super(surftrace, self).stop()
         self._clearProbes()
+        super(surftrace, self).stop()
 
-def setupParser(mode="remote", db="", remote_ip="pylcc.openanolis.cn", gdb="./gdb", vmlinux=""):
+def setupParser(mode="remote",
+                db="",
+                remote_ip="pylcc.openanolis.cn",
+                gdb="./gdb",
+                vmlinux="",
+                arch="",
+                ver=""):
     if mode not in ("remote", "local", "gdb"):
         raise InvalidArgsException("bad parser mode: %s" % mode)
 
     if mode == "local":
         return CdbParser(db)
     if mode == "remote":
-        return ClbcClient(server=remote_ip)
+        return ClbcClient(server=remote_ip, ver=ver, arch=arch)
     elif mode == "gdb":
         gdbPath = gdb
         return CgdbParser(vmlinuxPath=vmlinux, gdb=gdbPath)
@@ -1633,7 +1738,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     traces = args.traces
 
-    localParser = setupParser(args.mode, args.db, args.rip, args.gdb, args.vmlinux)
+    arch = ""
+    if args.arch:
+        if arch not in ('x86', 'x86_64', 'aarch64'):
+            raise InvalidArgsException('not support architecture %s' % args.arch)
+        arch = args.arch
+    localParser = setupParser(args.mode, args.db, args.rip, args.gdb, args.vmlinux, arch)
 
     if args.line:
         localParser.parserLine(args.line)
@@ -1648,13 +1758,6 @@ if __name__ == "__main__":
     if args.output:
         save2File = True
 
-    arch = ""
-    if args.arch:
-        if arch not in ('x86', 'x86_64', 'aarch64'):
-            raise InvalidArgsException('not support architecture %s' % args.arch)
-        arch = args.arch
-        if arch.startswith('x86'):
-            arch = 'x86'
     k = surftrace(traces, localParser, show=args.show, arch=arch, stack=args.stack)
     k.start()
     if not args.show:
