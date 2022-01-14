@@ -253,7 +253,10 @@ class CexecCmd(object):
 
     def cmd(self, cmds):
         p = Popen(shlex.split(cmds), stdout=PIPE)
-        return p.stdout.read().encode().strip()
+        if sys.version_info.major == 2:
+            return p.stdout.read().strip()
+        else:
+            return p.stdout.read().decode().strip()
 
     def system(self, cmds):
         cmds = cmds.replace('\0', '').strip()
@@ -287,7 +290,10 @@ class CasyncCmdQue(object):
                 return ""
             for f, e in es:
                 if e & select.EPOLLIN:
-                    s = os.read(f, l).decode()
+                    if sys.version_info.major == 2:
+                        s = os.read(f, l)
+                    else:
+                        s = os.read(f, l).decode()
                     return s
 
     def readw(self, want, tries=100):
@@ -455,7 +461,10 @@ class ClbcClient(object):
 
     @staticmethod
     def _recv_lbc(s):
-        d = s.recv(LBCBuffSize).decode("utf-8")
+        if sys.version_info.major == 2:
+            d = s.recv(LBCBuffSize)
+        else:
+            d = s.recv(LBCBuffSize).decode()
         if d[:3] != "LBC":
             return None
         size = d[3:11]
@@ -466,7 +475,10 @@ class ClbcClient(object):
         if size > LBCBuffSize:
             return None
         while len(d) < size:
-            d += s.recv(LBCBuffSize).decode("utf-8")
+            if sys.version_info.major == 2:
+                d += s.recv(LBCBuffSize)
+            else:
+                d += s.recv(LBCBuffSize).decode()
         res = json.loads(d[11:])
         if res['log'] != "ok.":
             raise DbException('db set return %s' % res["log"])
