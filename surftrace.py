@@ -253,7 +253,7 @@ class CexecCmd(object):
 
     def cmd(self, cmds):
         p = Popen(shlex.split(cmds), stdout=PIPE)
-        return p.stdout.read().strip()
+        return p.stdout.read().encode().strip()
 
     def system(self, cmds):
         cmds = cmds.replace('\0', '').strip()
@@ -360,7 +360,7 @@ class ftrace(object):
         fd = os.open(path, os.O_WRONLY)
         v = self._transEcho(value)
         try:
-            os.write(fd, v)
+            os.write(fd, v.encode())
         except OSError as e:
             raise InvalidArgsException("set arg %s to %s failed, return %s." % (v, path, e.message))
         finally:
@@ -374,7 +374,7 @@ class ftrace(object):
         fd = os.open(path, os.O_WRONLY|os.O_APPEND)
         v = self._transEcho(value)
         try:
-            os.write(fd, v)
+            os.write(fd, v.encode())
         except OSError as e:
             raise InvalidArgsException("set arg %s to %s failed, return %s." %(v, path, e.strerror))
         finally:

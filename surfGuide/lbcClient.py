@@ -13,27 +13,17 @@
 """
 __author__ = 'liaozhaoyan'
 
+import sys
+sys.path.append("../")
 import socket
 import json
 import os
 import sqlite3
-import shlex
-from subprocess import PIPE, Popen
+from surftrace import CexecCmd
+
 
 LBC_COMPILE_PORT = 7654
 LBCBuffSize = 80 * 1024 * 1024
-
-class CexecCmd(object):
-    def __init__(self):
-        pass
-
-    def cmd(self, cmds):
-        p = Popen(shlex.split(cmds), stdout=PIPE)
-        return p.stdout.read().strip()
-
-    def system(self, cmds):
-        cmds = cmds.replace('\0', '').strip()
-        return os.popen(cmds)
 
 class DbException(Exception):
     def __init__(self, message):
