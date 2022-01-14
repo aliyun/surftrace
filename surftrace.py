@@ -355,7 +355,8 @@ class ftrace(object):
     def _echoPath(self, path, value=""):
         cmd = "echo %s > %s" % (value, path)
         saveCmd(cmd)
-        if self._echo: print(cmd)
+        if self._echo:
+            print(cmd)
 
         fd = os.open(path, os.O_WRONLY)
         v = self._transEcho(value)
@@ -369,7 +370,8 @@ class ftrace(object):
     def _echoDPath(self, path, value=""):
         cmd = "echo %s >> %s" % (value, path)
         saveCmd(cmd)
-        if self._echo: print(cmd)
+        if self._echo:
+            print(cmd)
 
         fd = os.open(path, os.O_WRONLY|os.O_APPEND)
         v = self._transEcho(value)
