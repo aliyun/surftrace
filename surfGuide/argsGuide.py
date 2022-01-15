@@ -15,10 +15,10 @@ __author__ = 'liaozhaoyan'
 
 import urwid
 import re
-from conBase import CconBase, log
-from structSelector import CstructSelctor
-from surfExpression import ExprException, stripPoint, splitExpr, isStruct, probeReserveVars, regIndex, transReg
-from lbcClient import DbException
+from .conBase import CconBase, log
+from .structSelector import CstructSelctor
+from .surfExpression import ExprException, stripPoint, splitExpr, isStruct, probeReserveVars, regIndex, transReg
+from .lbcClient import DbException
 import inspect
 
 class CargsGuide(CconBase):

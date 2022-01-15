@@ -16,7 +16,7 @@ __author__ = 'liaozhaoyan'
 import re
 import os
 import urwid
-from conBase import CconBase, log
+from .conBase import CconBase, log
 
 class CsaveasWidget(CconBase):
     def __init__(self, parent, fName, content):

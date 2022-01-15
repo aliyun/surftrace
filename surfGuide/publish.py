@@ -18,12 +18,13 @@ import os
 import re
 import json
 import urwid
-from conBase import CconBase, log
-sys.path.append("..")
-from surftrace import surftrace, setupParser, InvalidArgsException, DbException
 from threading import Thread
 from zlib import decompress, compress, Z_BEST_COMPRESSION
 from base64 import b64encode
+
+from .conBase import CconBase, log
+sys.path.append("..")
+from surftrace import surftrace, setupParser, InvalidArgsException, DbException
 
 class pubThread(Thread):
     def __init__(self, lines, vers, jump, cbProc, cbDone):

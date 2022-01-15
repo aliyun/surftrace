@@ -23,7 +23,7 @@ from multiprocessing import Queue as pQueue
 from threading import Thread
 
 sys.path.append("..")
-from surftrace import surftrace, setupParser
+from surftrace.surftrace import surftrace, setupParser
 
 class CsubSurf(Process):
     def __init__(self, cmds, log="/dev/null"):

@@ -14,7 +14,7 @@
 __author__ = 'liaozhaoyan'
 
 import urwid
-from conBase import CconBase, log
+from .conBase import CconBase, log
 
 class CshowVersions(CconBase):
     def __init__(self, parent, vers):

@@ -20,14 +20,14 @@ sys.path.append("..")
 
 import os
 import urwid
-from conBase import CconBase, log
-from typeChooser import CtypeChooser
-from editJprobe import CeditJprobe
-from editEvent import CeditEvent
-from saveasWidget import CsaveasWidget
-from packProduct import CpackProduct
-from surfExpression import *
-from surfThread import CsurfThread
+from .conBase import CconBase, log
+from .typeChooser import CtypeChooser
+from .editJprobe import CeditJprobe
+from .editEvent import CeditEvent
+from .saveasWidget import CsaveasWidget
+from .packProduct import CpackProduct
+from .surfExpression import *
+from .surfThread import CsurfThread
 
 MAX_LINE = 10
 
@@ -58,8 +58,11 @@ class CeditExpression(CconBase):
 
     def _cb_pack_clk(self, widget):
         self._stopSurt()
-        w = CpackProduct(self, self._lines, self._fName)
-        self.switch_widget(w)
+        if len(self._lines) > 0:
+            w = CpackProduct(self, self._lines, self._fName)
+            self.switch_widget(w)
+        else:
+            self._footer.set_text("there is no expression to production.")
 
     def _cb_save_clk(self, widget):
         self._stopSurt()

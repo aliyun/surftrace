@@ -15,10 +15,10 @@ __author__ = 'liaozhaoyan'
 
 import urwid
 from datetime import datetime
-from lbcClient import ClbcClient
 import re
 
 def log(s):
+    pass
     with open("opera.log", 'a') as f:
         f.write("%s:" % str(datetime.now()) + s + "\n")
 

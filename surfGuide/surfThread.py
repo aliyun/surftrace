@@ -17,7 +17,10 @@ import sys
 import os
 import signal
 import time
-import Queue
+if sys.version_info.major == 2:
+    import Queue
+else:
+    from queue import Queue
 from multiprocessing import Process
 from multiprocessing import Queue as pQueue
 from threading import Thread

@@ -20,9 +20,9 @@ import re
 from re import error as reError
 import requests
 import urwid
-from conBase import CconBase, log
-from showVersions import CshowVersions
-from publish import Cpublish
+from .conBase import CconBase, log
+from .showVersions import CshowVersions
+from .publish import Cpublish
 
 verUrl = "http://pylcc.openanolis.cn/version/"
 SHOW_VERS = 8

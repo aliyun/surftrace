@@ -15,9 +15,9 @@ __author__ = 'liaozhaoyan'
 
 import urwid
 import re
-from conBase import CconBase, log
-from editFilter import CeditFilter
-from surfExpression import ExprException, maxNameString, unpackRes, probeReserveVars
+from .conBase import CconBase, log
+from .editFilter import CeditFilter
+from .surfExpression import ExprException, maxNameString, unpackRes, probeReserveVars
 
 class CeditEvent(CconBase):
     def __init__(self, parent, res, index):

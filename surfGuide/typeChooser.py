@@ -14,9 +14,9 @@
 __author__ = 'liaozhaoyan'
 
 import urwid
-from conBase import CconBase, log
-from editJprobe import CeditJprobe
-from editEvent import CeditEvent
+from .conBase import CconBase, log
+from .editJprobe import CeditJprobe
+from .editEvent import CeditEvent
 
 class CtypeChooser(CconBase):
     def __init__(self, parent):

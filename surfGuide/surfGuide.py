@@ -14,12 +14,15 @@
 """
 __author__ = 'liaozhaoyan'
 
+import sys
+sys.path.append("../")
 import urwid
 import os
-from conBase import CconBase, log
+from .conBase import CconBase, log
 import requests
-from lbcClient import CdbParser, ClbcClient, CexecCmd
-from fileBrowser import CfileBrowser
+from .lbcClient import CdbParser, ClbcClient
+from surftrace import CexecCmd
+from .fileBrowser import CfileBrowser
 
 class CsurfGuide(CconBase):
     def __init__(self):
@@ -76,6 +79,9 @@ class CsurfGuide(CconBase):
         frame = self._setupFrame([dummy, tips, dummy, btns])
         return frame
 
-if __name__ == "__main__":
+def main():
     guide = CsurfGuide()
     guide.loop()
+
+if __name__ == "__main__":
+    main()

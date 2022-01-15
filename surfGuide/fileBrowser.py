@@ -17,12 +17,12 @@ import itertools
 import re
 import os
 import urwid
-from fileChecker import surfCheck
+from .fileChecker import surfCheck
 
-from conBase import CconBase, log
-from createSurf import CcreateSurf
-from editExpression import CeditExpression
-from lbcClient import ClbcClient
+from .conBase import CconBase, log
+from .createSurf import CcreateSurf
+from .editExpression import CeditExpression
+from .lbcClient import ClbcClient
 
 # global cache of widgets
 _widget_cache = {}
