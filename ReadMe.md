@@ -1,86 +1,88 @@
-# 1、产生背景
+# 1、简介
 
-​    我们可以采用以下手段来trace内核调用，只说缺点：
+​	surftrace是在ftrace基础上封装的一系列工具集，用于trace内核信息，当前发行版主要包含 surftrace、surfGuide两大个工具，后期还将包含pylcc(python libbpf compile collections)。
 
-## 1.1、kprobe/jprobe/kretprobe
+![image-20220116004341741](ReadMe.assets/image-20220116004341741.png)
 
-- 侵入式插入ko，危险系数高
-- 需要编写内核代码，难度系数大
+## 1.1、ftrace原理与不足
 
-## 1.2、systemtap
+​	ftrace是一个内核中的追踪器，用于帮助系统开发者或设计者查看内核运行情况，它可以被用来调试或者分析延迟/性能等常见问题。早期 ftrace 是一个 function tracer，仅能够记录内核的函数调用流程。如今ftrace已经成为一个开发框架，从2.6内核开始引入，是一套公认安全、可靠、高效的内核数据获取方式。
 
-- 需要编写stp代码，步骤较多
-
-## 1.3、bpf（含bcc和libebpf）
-
-- 需要高版本内核支持
-- 需要编写两处代码，步骤较多
-
-## 1.4、ftrace-kprobe
-
-- 配置步骤繁琐，从配置到看出效果，至少要经历五个以上的步骤
-- 功能受限，对知识点要求较高
-
-## 1.5、perf-tools kprobe
-
-后来我发现了greg 写的一个kprobe 封装工具：https://github.com/brendangregg/perf-tools/blob/master/kernel/kprobe，它可以把繁杂的ftrace 一个 kprobe event 缩略为一个命令，极大拓展了我对ftrace的了解。然而这个工具使用起来仍有以下困难：
-
-- 只能追踪一个kprobe点，我往往需要追踪多个kprobe点；
-- 深入追踪困难：比如我们要在__netif_receive_skb_core 函数中打出skb参数中ip头里面的protocol成员，对应的表达式是 **proto=+0x9(+0xf0(%di)):s8**，光推导这个表达式的过程或许要耗费我们10分钟左右的时间。而且这个表达式并非固定不变，在不同的内核上还需要重新计算；
-
-上述两点成为了我使用ftrace的拦路虎，一直想对它改造优化，但受限于自己的蹩脚的bash能力，进展比较慢。于是换了一个思路，改用python。
-
-# 2、surftrace 准备工作
-
-## 2.1、命名约定
-
-在后面的使用中，会用到两类表达式，一种是程序员可以直观通过结构体定义理解的，比如：
+​    ftrace对使用者的要求比较高，以对内核符号 wake_up_new_task 进行trace，同时要获取入参(struct task_struct *)->comm 成员信息为例，启动配置需要经历三个步骤：
 
 ```bash
-p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol ip_src=@(struct iphdr *)l3%0->saddr ip_dst=@(struct iphdr *)l3%0->daddr data=@(struct iphdr *)l3%0->sdata[1] f:proto==1&&ip_src==127.0.0.1
+echo 'p:f0 wake_up_new_task comm=+0x678(%di):string' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 ```
 
-称为**结构化表达式**
-
-这类表达式不能被ftrace识别，需要在surftrace中进行转换，转换后的
+​	要想停止需要继续配置如下：
 
 ```bash
-p __netif_receive_skb_core proto=+0x9(+0xf0(%di)):x8 ip_src=+0xc(+0xf0(%di)):x32 ip_dst=+0x10(+0xf0(%di)):x32 type=+0x14(+0xf0(%di)):x8 seq=+0x1c(+0xf0(%di)):s16 f:common_pid==0&&proto==1&&ip_src==0x100007f
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo -:f0 >> /sys/kernel/debug/tracing/kprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 ```
 
-称为**ftrace表达式**
+​	一共需要六个步骤。其中，最困难的是第一个参数解析步骤。通常情况下，需要使用gdb 加载对应内核vmlinux， 对 struct task_struct 结构体中 comm成员进行偏移计算。上述方法如果不经常使用，重新手工操作的时间成本非常高，导致真正直接采用ftrace对内核信息进行采集的案例非常少，相关资料文献也匮乏。
 
-# 2.2、依赖条件
+## 1.2、surftrace目标
 
-如果你想使用surftrace的完整功能，至少需要以下条件：
+​	surftrace的主要目标是为了降低ftrace，达到快速高效获取内核信息目标。综合来说要达到以下效果：
 
-- 内核支持ftrace、已经mount了debugfs、root权限
-- python2.7或更高，推荐3 以上
-下面的条件三选一即可
-- 1、公开发行版内核，可以访问 pylcc.openanolis.cn
-- 2、公开发行版内核，已经从 http://pylcc.openanolis.cn/db/ 下载了 对应内核的db文件
-- 3.1、环境上安装了gdb 版本大于 9，如果是x86 平台，可以直接从 http://pylcc.openanolis.cn/gdb/ 下载
-- 3.2、安装了对应内核的 vmlinux （结构化表达式依赖，非必须）
+1. 一键trace内核符号，并获取指定内核数据；
+2. 除了C和linux 操作系统内核，用户无需新增学习掌握其它知识点（需要获取数据进行二次处理除外）；
+3. 覆盖大部分主流发行版内核；
 
+# 2、surftrace 命令使用
 
+​	使用surftrace，需要满足以下条件：
 
-## 2.3、参数说明
+1. 公开发行版linux内核，支持目录参考：http://pylcc.openanolis.cn/version/  （持续更新）
+2. 内核支持ftrace，已配置了debugfs，root权限；
+3. Python2 >= 2.7; Python3 >= 3.5，已安装pip；
 
-```bash
-usage: surftrace.py [-h] [-v VMLINUX] [-m MODE] [-r RIP] [-f FILE] [-g GDB]
-                    [-F FUNC] [-o OUTPUT] [-l LINE] [-a ARCH] [-s] [-S]
-                    [traces [traces ...]]
+​	surftrace支持 remote（默认），local和gdb三种表达式解析器，要求分别如下：
+
+1. remote mode：可以访问pylcc.openanolis.cn
+2. local mode：从http://pylcc.openanolis.cn/db/ 下载对应arch和内核的下载到本地
+3. gdb mode：gdb version > 8.0，存放有对应内核的vmlinux；对于gdb模式而言，不受公开发行版内核限制
+
+## 2.1、安装
+
+​	我们以龙蜥 4.19.91-24.8.an8.x86_64内核为例，需要root用户，执行以下命令进行安装：
+
+```
+pip3 install surftrace
+Collecting surftrace
+  Downloading http://mirrors.cloud.aliyuncs.com/pypi/packages/b9/a2/f7e04bb8ebb12e6517162a70886e3ffe8d466437b15624590c9301fdcc52/surftrace-0.2.tar.gz
+Building wheels for collected packages: surftrace
+  Running setup.py bdist_wheel for surftrace ... done
+  Stored in directory: /root/.cache/pip/wheels/cf/28/93/187f359be189bf0bf4a70197c53519c6ca54ffb957bcbebf5a
+Successfully built surftrace
+Installing collected packages: surftrace
+Successfully installed surftrace-0.2
+```
+
+​	检查安装是否成功
+
+```
+surftrace --help
+usage: surftrace [-h] [-v VMLINUX] [-m MODE] [-d DB] [-r RIP] [-f FILE]
+                 [-g GDB] [-F FUNC] [-o OUTPUT] [-l LINE] [-a ARCH] [-s] [-S]
+                 [traces [traces ...]]
 
 Trace ftrace kprobe events.
 
 positional arguments:
-  trace                 set trace args.
+  traces                set trace args.
 
 optional arguments:
   -h, --help            show this help message and exit
   -v VMLINUX, --vmlinux VMLINUX
                         set vmlinux path.
   -m MODE, --mode MODE  set arg parser, fro
+  -d DB, --db DB        set local db path.
   -r RIP, --rip RIP     set remote server ip, remote mode only.
   -f FILE, --file FILE  set input args path.
   -g GDB, --gdb GDB     set gdb exe file path.
@@ -92,264 +94,346 @@ optional arguments:
   -s, --stack           show call stacks.
   -S, --show            only show expressions.
 
+examples:
 ```
 
+## 2.2、常规函数入口trace
 
--f: 从文件中读取表达式，适合大量配置的场景
-
--o: 将执行过程导出到脚本中
-
--a:指定cpu架构，涉及到寄存器转换，目前只支持x86_64/aarch64，不指定的话，会根据lscpu获取
-
--s:打印probe点调用栈，这是个全局开关
-
--S:只生成ftrace表达式，不下发到ftrace。该模式适合交叉调试场景，比如我们要想在树莓派上去probe 钩子，但是树莓派的资源空间有限，不可能去安装gdb和vmlinux。因此我们可以在宿主机上将结构化表达式转成ftrace表达式。然后在树莓派下发即可。
-
-# 3、实战
-
-我们以open anolis为例，将surftrace.py取下来
-
-```
-sudo sh -c su
-chmod +x surftrace.py
-```
-
-## 3.1、追踪函数入口和返回位置
-
-按Ctrl + C 停止
-
-```bash
-#./surftrace.py 'p _do_fork' 'r _do_fork'
-echo 'p:f0 _do_fork ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 'r:f1 _do_fork ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f1/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1637241 [000] d... 7462686.335257: f0: (_do_fork+0x0/0x3a0)
- <...>-1637241 [000] d... 7462686.335323: f1: (SyS_clone+0x36/0x40 <- _do_fork)
- systemd-1     [004] d... 7462686.854375: f0: (_do_fork+0x0/0x3a0)
- systemd-1     [004] d... 7462686.854446: f1: (SyS_clone+0x36/0x40 <- _do_fork)
- ……
-  systemd-1     [004] d... 7462688.104383: f0: (_do_fork+0x0/0x3a0)
- systemd-1     [004] d... 7462688.104464: f1: (SyS_clone+0x36/0x40 <- _do_fork)
-^Cecho 0 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
- <...>-1637241 [000] d... 7462688.134451: f0: (_do_fork+0x0/0x3a0)
- <...>-1637241 [000] d... 7462688.135278: f1: (SyS_clone+0x36/0x40 <- _do_fork)
-echo 0 > /sys/kernel/debug/tracing/events/kprobes/f1/enable
- <...>-1637241 [000] d... 7462688.155188: f1: (SyS_clone+0x36/0x40 <- _do_fork)
-echo  > /sys/kernel/debug/tracing/kprobe_events
-echo 0 > /sys/kernel/debug/tracing/tracing_on
-```
-
-可以看到 surftrace支持多个probe，所有表达式要用单引号括起来，表达式中，第一段字母p 表示probe函数入口，r表示probe函数返回位置，第二段为函数符号，该符号必须要在 tracing/available_filter_functions 中可以查找到的
-
-## 3.2、 获取函数入参
-
-还是以_do_fork为例，我们可以查找到它的入参是：
+​	接下来我们以 以下两个常用内核符号为例，它的原型定义如下：
 
 ```c
-#ifdef CONFIG_FORK2
-long _do_fork(struct task_struct *parent,
-  		struct task_struct *source,
-  		unsigned long clone_flags,
-#else
-		  long _do_fork(unsigned long clone_flags,
-#endif
-  	  unsigned long stack_start,
-  	  unsigned long stack_size,
-  	  int __user *parent_tidptr,
-  	  int __user *child_tidptr,
-  	  unsigned long tls)
+void wake_up_new_task(struct task_struct *p);
+struct file *do_filp_open(int dfd, struct filename *pathname, const struct open_flags *op);
 ```
 
-我们可以确认它的第一个入参类型是 struct task_struct，如果要获取任务名，即common，可以采用以下方法：
+### 2.2.1、追踪符号入口和返回点
+
+​	命令：surftrace 'p wake_up_new_task' 'r wake_up_new_task'
 
 ```bash
-#./surftrace.py 'p _do_fork comm=%0->comm'
-echo 'p:f0 _do_fork comm=+0xafc(%di):string ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1642046 [001] d... 7463503.175187: f0: (_do_fork+0x0/0x3a0) comm="surftrace.py"
- systemd-1     [002] d... 7463503.606161: f0: (_do_fork+0x0/0x3a0) comm="systemd"
- python-16819 [003] d... 7463504.383400: f0: (_do_fork+0x0/0x3a0) comm="python"
- systemd-1     [002] d... 7463504.856166: f0: (_do_fork+0x0/0x3a0) comm="systemd"
- <...>-1642087 [002] d... 7463506.031046: f0: (_do_fork+0x0/0x3a0) comm="sh"
- <...>-1642087 [002] d... 7463506.031363: f0: (_do_fork+0x0/0x3a0) comm="sh"
- systemd-1     [004] d... 7463506.106159: f0: (_do_fork+0x0/0x3a0) comm="systemd"
-^Cecho 0 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
- <...>-1642046 [001] d... 7463506.356102: f0: (_do_fork+0x0/0x3a0) comm="surftrace.py"
-echo  > /sys/kernel/debug/tracing/kprobe_events
-echo 0 > /sys/kernel/debug/tracing/tracing_on
+surftrace 'p wake_up_new_task' 'r wake_up_new_task'
+echo 'p:f0 wake_up_new_task' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 'r:f1 wake_up_new_task' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f1/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ surftrace-2336  [001] ....  1447.877666: f0: (wake_up_new_task+0x0/0x280)
+ surftrace-2336  [001] d...  1447.877670: f1: (_do_fork+0x153/0x3d0 <- wake_up_new_task)
 ```
 
-参数表达式中，第一个 comm是变量名，可以自己定义，%0 表示第一个入参，%1 表示第二入参，以此类推。~连接符号表示的是后面会紧跟结构化成员，surftrace会根据解析结果得到comm成员类型是string并显示出来。
+​	示例中入参有两个表达式，所有表达式要用单引号括起来。
 
-## 3.3 结构体级联和扩展
+- 'p wake_up_new_task'：p表示表示probe函数入口；
+- 'r wake_up_new_task'：r表示probe函数返回位置；
 
-仍以 _do_fork 和 struct task_struct为例，在一个结构化表达式中，uesrs=%0->mm->mm_users，入参编号%0与连接符~中间增加了一个S字母来指定整数显示格式，共有SUX三种类型，分别对应有符号十进制、无符号十进制和十六进制。如果不指定，默认是X，16进制
+​	后面的wake_up_new_task是要trace的函数符号，这个符号必须要在tracing/available_filter_functions 中可以找到的。
 
-```bash
-#级联指针和指定整数数据格式
-./surftrace.py 'p _do_fork comm=%0->comm  uesrs=S%0->mm->mm_users'
-echo 'p:f0 _do_fork comm=+0xafc(%di):string uesrs=+0x48(+0x858(%di)):s32 ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1650321 [005] d... 7464948.730210: f0: (_do_fork+0x0/0x3a0) comm="surftrace.py" uesrs=1
- systemd-1     [000] d... 7464949.359231: f0: (_do_fork+0x0/0x3a0) comm="systemd" uesrs=1
- <...>-1650361 [005] d... 7464949.424381: f0: (_do_fork+0x0/0x3a0) comm="sh" uesrs=1
- <...>-1650361 [005] d... 7464949.424606: f0: (_do_fork+0x0/0x3a0) comm="sh" uesrs=1
- python-16819 [004] d... 7464950.235552: f0: (_do_fork+0x0/0x3a0) comm="python" uesrs=4
- \....
- #级联结构体成员
- ./surftrace.py 'p _do_fork comm=%0->comm  node=%0->pids[1].node.next'
-echo 'p:f0 _do_fork comm=+0xafc(%di):string node=+0x988(%di):x64 ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1652761 [000] d... 7465380.899543: f0: (_do_fork+0x0/0x3a0) comm="surftrace.py" node=0x0
- systemd-1     [000] d... 7465381.610144: f0: (_do_fork+0x0/0x3a0) comm="systemd" node=0x0
- python-16819 [001] d... 7465382.017634: f0: (_do_fork+0x0/0x3a0) comm="python" node=0xffff88062231be08
-```
+### 2.2.2、获取函数入参
 
-## 3.4 设置过滤器
+​	要获取 do_filp_open 函数 第一个入参dfd，它的数据类型是：int。
 
-过滤器需要放在表达式最后，以f:开头，可以使用括号和&& ||逻辑表达式进行组合，具体写法可以参考ftrace文档说明
+​	命令：surftrace 'p do_filp_open dfd=%0'
 
 ```bash
-./surftrace.py 'p _do_fork comm=%0->comm  uesrs=S%0->mm->mm_users f:comm==systemd'
-echo 'p:f0 _do_fork comm=+0xafc(%di):string uesrs=+0x48(+0x858(%di)):s32' >> /sys/kernel/debug/tracing/kprobe_events
-echo 'comm==systemd' > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/filter
+surftrace 'p do_filp_open dfd=%0'
+echo 'p:f0 do_filp_open dfd=%di:u32' >> /sys/kernel/debug/tracing/kprobe_events
 echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
 echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
 echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
- systemd-1     [002] d... 4817737.060026: f0: (_do_fork+0x0/0x3a0) comm="systemd" uesrs=1
- systemd-1     [002] d... 4817738.310035: f0: (_do_fork+0x0/0x3a0) comm="systemd" uesrs=1
- systemd-1     [002] d... 4817739.560046: f0: (_do_fork+0x0/0x3a0) comm="systemd" uesrs=1
- systemd-1     [001] d... 4817740.607892: f0: (_do_fork+0x0/0x3a0) comm="systemd" uesrs=1
- systemd-1     [001] d... 4817741.810041: f0: (_do_fork+0x0/0x3a0) comm="systemd" uesrs=1
- 
- #./surftrace.py 'p _do_fork comm=%0->comm  users=S%0->mm->mm_users f:comm==python||users<4'
-echo 'p:f0 _do_fork comm=+0xafc(%di):string users=+0x48(+0x858(%di)):s32 ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 'comm==python||users<4' > /sys/kernel/debug/tracing/events/kprobes/f0/filter
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1655729 [004] d... 7465872.793430: f0: (_do_fork+0x0/0x3a0) comm="surftrace.py" users=1
- systemd-1     [000] d... 7465872.861176: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
- systemd-1     [000] d... 7465874.111185: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
- <...>-1655773 [003] d... 7465874.123909: f0: (_do_fork+0x0/0x3a0) comm="sh" users=1
- <...>-1655773 [003] d... 7465874.124134: f0: (_do_fork+0x0/0x3a0) comm="sh" users=2
- python-16819 [002] d... 7465874.909735: f0: (_do_fork+0x0/0x3a0) comm="python" users=4
- systemd-1     [000] d... 7465875.361189: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
+ surftrace-2435  [001] ....  2717.606277: f0: (do_filp_open+0x0/0x100) dfd=4294967196
+ AliYunDun-1812  [000] ....  2717.655955: f0: (do_filp_open+0x0/0x100) dfd=4294967196
+ AliYunDun-1812  [000] ....  2717.856227: f0: (do_filp_open+0x0/0x100) dfd=4294967196
 ```
 
-我们还会常用common_pid作为current tid进行过滤，该变量由系统提供，无需定义
+- dfd是自定义变量，可以自行定义，名字不冲突即可
+- %0表示第一个入参，%1表示第二个……
+
+
+
+​	前面打印中，dfd是按照十进制显示的，可能没有十六进制那么直观，指定十六进制的方法：
+
+​	命令：surftrace 'p do_filp_open dfd=X%0'
+
+```
+surftrace 'p do_filp_open dfd=X%0'
+echo 'p:f0 do_filp_open dfd=%di:x32' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ surftrace-2459  [000] ....  3137.167885: f0: (do_filp_open+0x0/0x100) dfd=0xffffff9c
+ AliYunDun-1812  [001] ....  3137.171997: f0: (do_filp_open+0x0/0x100) dfd=0xffffff9c
+ AliYunDun-1826  [001] ....  3137.201401: f0: (do_filp_open+0x0/0x100) dfd=0xffffff9c
+```
+
+​	传参编号%前面使用了X进制类型标识符，共有SUX三种类型，分别对应有符号十进制、无符号十进制和十六进制，不指定默认为U类型。
+
+### 2.2.3、解析入参结构体
+
+​	wake_up_new_task入参类型为struct task_struct *，如果要获取入参中comm成员，即任务名，
+
+​	命令：surftrace 'p wake_up_new_task comm=%0->comm'
 
 ```bash
-#./surftrace.py 'p _do_fork comm=%0->comm  users=S%0->mm->mm_users f:common_pid==1&&(comm==python||users<4)'
-echo 'p:f0 _do_fork comm=+0xafc(%di):string users=+0x48(+0x858(%di)):s32 ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 'common_pid==1&&(comm==python||users<4)' > /sys/kernel/debug/tracing/events/kprobes/f0/filter
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- systemd-1     [004] d... 7466113.361698: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
- systemd-1     [004] d... 7466114.611729: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
- systemd-1     [004] d... 7466115.861707: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
- systemd-1     [004] d... 7466117.111716: f0: (_do_fork+0x0/0x3a0) comm="systemd" users=1
+surftrace 'p wake_up_new_task comm=%0->comm'
+echo 'p:f0 wake_up_new_task comm=+0xae0(%di):string' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ surftrace-2421  [000] ....  2368.261019: f0: (wake_up_new_task+0x0/0x280) comm="surftrace"
+ bash-2392  [001] ....  2375.809655: f0: (wake_up_new_task+0x0/0x280) comm="bash"
+ bash-2392  [001] ....  2379.038534: f0: (wake_up_new_task+0x0/0x280) comm="bash"
+ bash-2392  [000] ....  2381.237443: f0: (wake_up_new_task+0x0/0x280) comm="bash"
 ```
 
-## 3.5 函数内部追踪
+​	方法和C语言获取结构体成员方法一样。
 
-以一下汇编代码为例，要获取偏移21位置时的%r12值
-
-```
-disas _do_fork
-Dump of assembler code for function _do_fork:
-   0xffffffff8108a560 <+0>:	callq  0xffffffff8174db10 <__fentry__>
-   0xffffffff8108a565 <+5>:	push   %rbp
-   0xffffffff8108a566 <+6>:	mov    %rsp,%rbp
-   0xffffffff8108a569 <+9>:	push   %r15
-   0xffffffff8108a56b <+11>:	push   %r14
-   0xffffffff8108a56d <+13>:	push   %r13
-   0xffffffff8108a56f <+15>:	push   %r12
-   0xffffffff8108a571 <+17>:	xor    %r14d,%r14d
-   0xffffffff8108a574 <+20>:	push   %rbx
-   0xffffffff8108a575 <+21>:	mov    %rdx,%r12
-```
-
-```
-#./surftrace.py 'p _do_fork+21 r=%r12'
-echo 'p:f0 _do_fork+21 r=%r12 ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1659986 [000] d... 7466637.258116: f0: (_do_fork+0x15/0x3a0) r=0x38
- python-16819 [004] d... 7466637.577201: f0: (_do_fork+0x15/0x3a0) r=0x38
- <...>-497835 [004] d... 7466638.002734: f0: (_do_fork+0x15/0x3a0) r=0x3a
- <...>-497835 [004] d... 7466638.003674: f0: (_do_fork+0x15/0x3a0) r=0x38
-```
-
-同样的，也可以对寄存器对应的指针进行解析和过滤，这里就不在详细展开了
-
-## 3.6、函数返回值获取
-
-这个和原kprobe方法一致，返回值用$retval 表示
-
-```
-#./surftrace.py 'r _do_fork r=$retval'
-echo 'r:f0 _do_fork r=$retval ' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/tracing_on
- <...>-1661938 [000] d... 7466977.685020: f0: (SyS_clone+0x36/0x40 <- _do_fork) r=0x195bfe
- systemd-1     [004] d... 7466977.863627: f0: (SyS_clone+0x36/0x40 <- _do_fork) r=0x195bff
- systemd-1     [004] d... 7466979.113626: f0: (SyS_clone+0x36/0x40 <- _do_fork) r=0x195c00
- <...>-497835 [000] d... 7466979.731526: f0: (sys_vfork+0x3c/0x40 <- _do_fork) r=0x195c01
-```
-
-## 3.7、skb解析处理
-
-sk_buff 是linux网络协议栈重要的结构体，但是通过上面的方法，并不能直接解析到我们关注的报文内容，需要进行特殊处理。以追踪icmp接收ping报文为例，我们在__netif_receive_skb_core 函数中进行probe和过滤
+​	结构体类型可以级联访问：
 
 ```bash
-#./surftrace.py 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol ip_src=@(struct iphdr *)%0->saddr ip_dst=@(struct iphdr *)l3%0->daddr data=X@(struct iphdr *)l3%0->sdata[1] f:proto==1&&ip_src==127.0.0.1'
-echo 'p:f0 __netif_receive_skb_core proto=+0x9(+0xf0(%di)):u8 ip_src=+0xc(+0xf0(%di)):u32 ip_dst=+0x10(+0xf0(%di)):u32 data=+0x16(+0xf0(%di)):x16' >> /sys/kernel/debug/tracing/kprobe_events
+ surftrace 'p wake_up_new_task uesrs=S%0->mm->mm_users'
+echo 'p:f0 wake_up_new_task uesrs=+0x58(+0x850(%di)):s32' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ surftrace-2471  [001] ....  3965.234680: f0: (wake_up_new_task+0x0/0x280) uesrs=2
+ bash-2392  [000] ....  3970.094475: f0: (wake_up_new_task+0x0/0x280) uesrs=1
+ bash-2392  [000] ....  3971.954463: f0: (wake_up_new_task+0x0/0x280) uesrs=1
+```
+
+```bash
+surftrace 'p wake_up_new_task node=%0->se.run_node.rb_left'
+echo 'p:f0 wake_up_new_task node=+0xa8(%di):u64' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ surftrace-2543  [001] ....  5926.605145: f0: (wake_up_new_task+0x0/0x280) node=0
+ bash-2392  [001] ....  5940.292293: f0: (wake_up_new_task+0x0/0x280) node=0
+ bash-2392  [001] ....  5945.207106: f0: (wake_up_new_task+0x0/0x280) node=0
+ systemd-journal-553   [000] ....  5953.211998: f0: (wake_up_new_task+0x0/0x280) node=0
+```
+
+### 2.2.4、设置过过滤器
+
+​	过滤器需要放在表达式最后，以f:开头，可以使用括号和&& ||逻辑表达式进行组合，具体写法可以参考ftrace文档说明
+
+​	命令行 surftrace 'p wake_up_new_task comm=%0->comm f:comm=="python3"'
+
+```bash
+surftrace 'p wake_up_new_task comm=%0->comm f:comm=="python3"'
+echo 'p:f0 wake_up_new_task comm=+0xb28(%di):string' >> /sys/kernel/debug/tracing/kprobe_events
+echo 'comm=="python3"' > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/filter
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-2640781 [002] .... 6305734.444913: f0: (wake_up_new_task+0x0/0x250) comm="python3"
+ <...>-2640781 [002] .... 6305734.447806: f0: (wake_up_new_task+0x0/0x250) comm="python3"
+ <...>-2640781 [002] .... 6305734.450897: f0: (wake_up_new_task+0x0/0x250) comm="python3"
+```
+
+​	系统会默认提供 'common_pid', 'common_preempt_count', 'common_flags', 'common_type' 这5个变量作为过滤器，该变量由系统提供，无需额外定义。
+
+### 2.2.5、函数内部追踪
+
+​	函数内部追踪需要结合函数内部汇编代码进行推导，该方法并不通用，该内容操作进供参考。反汇编do_filp_open函数
+
+```asm
+3699	in fs/namei.c
+   0xffffffff812adb65 <+85>:	mov    %r13d,%edx
+   0xffffffff812adb70 <+96>:	or     $0x40,%edx
+   0xffffffff812adb73 <+99>:	mov    %r12,%rsi
+   0xffffffff812adb76 <+102>:	mov    %rsp,%rdi
+   0xffffffff812adb89 <+121>:	callq  0xffffffff812ac760 <path_openat>
+   0xffffffff812adb92 <+130>:	mov    %rax,%rbx
+
+3700	in fs/namei.c
+   0xffffffff812adb8e <+126>:	cmp    $0xfffffffffffffff6,%rax
+   0xffffffff812adb95 <+133>:	je     0xffffffff812adbb4 <do_filp_open+164>
+
+3701	in fs/namei.c
+   0xffffffff812adbb4 <+164>:	mov    %r13d,%edx
+   0xffffffff812adbb7 <+167>:	mov    %r12,%rsi
+   0xffffffff812adbba <+170>:	mov    %rsp,%rdi
+   0xffffffff812adbbd <+173>:	callq  0xffffffff812ac760 <path_openat>
+   0xffffffff812adbc2 <+178>:	mov    %rax,%rbx
+   0xffffffff812adbc5 <+181>:	jmp    0xffffffff812adb97 <do_filp_open+135>
+
+3702	in fs/namei.c
+   0xffffffff812adb97 <+135>:	cmp    $0xffffffffffffff8c,%rbx
+   0xffffffff812adb9b <+139>:	je     0xffffffff812adbc7 <do_filp_open+183>
+```
+
+对应源码
+
+```c
+struct file *do_filp_open(int dfd, struct filename *pathname,
+  		const struct open_flags *op)
+{
+  	struct nameidata nd;
+  	int flags = op->lookup_flags;
+  	struct file *filp;
+  
+  	set_nameidata(&nd, dfd, pathname);
+  	filp = path_openat(&nd, op, flags | LOOKUP_RCU);
+  	if (unlikely(filp == ERR_PTR(-ECHILD)))
+  		filp = path_openat(&nd, op, flags);
+  	if (unlikely(filp == ERR_PTR(-ESTALE)))
+  		filp = path_openat(&nd, op, flags | LOOKUP_REVAL);
+  	restore_nameidata();
+  	return filp;
+}
+```
+
+要获取 3699行 filp = path_openat(&nd, op, flags | LOOKUP_RCU) 对应的filp的值
+
+```bash
+surftrace 'p do_filp_open+121 filp=X!(u64)%ax'
+echo 'p:f0 do_filp_open+121 filp=%ax:x64' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-1315799 [006] d.Z. 6314249.201847: f0: (do_filp_open+0x79/0xd0) filp=0xffff929db2819840
+ <...>-4006158 [014] d.Z. 6314249.326736: f0: (do_filp_open+0x79/0xd0) filp=0xffff929daeac48c0
+```
+
+变量表达式：filp=X!(u64)%ax 中，使用!对寄存器类型进行数据类型强制转换，括号当中的是是数据类型定义。
+
+展开 struct file 结构体定义：
+
+```c
+struct file {
+    union {
+        struct llist_node fu_llist;
+        struct callback_head fu_rcuhead;
+    } f_u;
+    struct path f_path;
+    struct inode *f_inode;
+    const struct file_operations *f_op;
+    spinlock_t f_lock;
+    enum rw_hint f_write_hint;
+    atomic_long_t f_count;
+    unsigned int f_flags;
+    fmode_t f_mode;
+    struct mutex f_pos_lock;
+    loff_t f_pos;
+    struct fown_struct f_owner;
+    const struct cred *f_cred;
+    struct file_ra_state f_ra;
+    u64 f_version;
+    void *f_security;
+    void *private_data;
+    struct list_head f_ep_links;
+    struct list_head f_tfile_llink;
+    struct address_space *f_mapping;
+    errseq_t f_wb_err;
+}
+```
+
+​	如果要获取此时的f_pos值，可以这样获取
+
+​	命令行：surftrace 'p do_filp_open+121 pos=X!(struct file*)%ax->f_pos'
+
+```bash
+surftrace 'p do_filp_open+121 pos=X!(struct file*)%ax->f_pos'
+echo 'p:f0 do_filp_open+121 pos=+0x68(%ax):x64' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-1334277 [010] d.Z. 6314645.646230: f0: (do_filp_open+0x79/0xd0) pos=0x0
+ <...>-2916553 [002] d.Z. 6314645.653164: f0: (do_filp_open+0x79/0xd0) pos=0x0
+ <...>-2916553 [002] d.Z. 6314645.653253: f0: (do_filp_open+0x79/0xd0) pos=0x0
+```
+
+获取方法和前面保持一致。
+
+## 2.3、获取返回值
+
+​	前文已经描述采用r 对事件类型进行标识，返回寄存器统一用$retval标识，与ftrace保持一致，以获取do_filp_open函数返回值为例：
+
+​	命令行：surftrace 'r do_filp_open filp=$retval'
+
+```bash
+surftrace 'r do_filp_open filp=$retval'
+echo 'r:f0 do_filp_open filp=$retval:u64' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-1362926 [010] d... 6315264.198718: f0: (do_sys_openat2+0x1b6/0x260 <- do_filp_open) filp=18446623804769722880
+ <...>-4006154 [008] d... 6315264.256749: f0: (do_sys_openat2+0x1b6/0x260 <- do_filp_open) filp=18446623804770426624
+ <...>-4006154 [008] d... 6315264.256776: f0: (do_sys_openat2+0x1b6/0x260 <- do_filp_open) filp=18446623804770425344
+```
+
+​	获取 struct file 中f_pos成员
+
+​	命令行：surftrace 'r do_filp_open pos=$retval->f_pos'
+
+```bash
+surftrace 'r do_filp_open pos=$retval->f_pos'
+echo 'r:f0 do_filp_open pos=+0x68($retval):u64' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-1371049 [008] d... 6315439.568814: f0: (do_sys_openat2+0x1b6/0x260 <- do_filp_open) pos=0
+ systemd-journal-3665  [012] d... 6315439.568962: f0: (do_sys_openat2+0x1b6/0x260 <- do_filp_open) pos=0
+ systemd-journal-3665  [012] d... 6315439.571519: f0: (do_sys_openat2+0x1b6/0x260 <- do_filp_open) pos=0
+```
+
+## 2.4、skb处理
+
+​	sk_buff 是linux网络协议栈重要的结构体，通过前面的方法，并不能直接解析到我们关注的报文内容，需要进行特殊处理。以追踪icmp接收ping报文为例，我们在__netif_receive_skb_core 函数中进行probe和过滤:
+
+​	命令行 surftrace 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol ip_src=@(struct iphdr *)%0->saddr ip_dst=@(struct iphdr *)l3%0->daddr data=X@(struct iphdr *)l3%0->sdata[1] f:proto==1&&ip_src==127.0.0.1'
+
+​	同时可能需要 执行 ping127.0.0.1
+
+```bash
+surftrace 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol ip_src=@(struct iphdr *)%0->saddr ip_dst=@(struct iphdr *)l3%0->daddr data=X@(struct iphdr *)l3%0->sdata[1] f:proto==1&&ip_src==127.0.0.1'
+echo 'p:f0 __netif_receive_skb_core proto=+0x9(+0xe8(%di)):u8 ip_src=+0xc(+0xe8(%di)):u32 ip_dst=+0x10(+0xe8(%di)):u32 data=+0x16(+0xe8(%di)):x16' >> /sys/kernel/debug/tracing/kprobe_events
 echo 'proto==1&&ip_src==0x100007f' > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/filter
 echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
 echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
 echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
- <...>-2076163 [000] d.s1 4818041.743856: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x4dec
- <...>-2076163 [000] d.s1 4818041.743905: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x4df4
- <...>-2076163 [000] d.s1 4818042.767865: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0xef26
- <...>-2076163 [000] d.s1 4818042.767914: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0xef2e
- <...>-2076163 [000] d.s1 4818043.791858: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x9069
- <...>-2076163 [000] d.s1 4818043.791905: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x9071
- <...>-2076163 [000] d.s1 4818044.815861: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x31a6
- <...>-2076163 [000] d.s1 4818044.815911: f0: (__netif_receive_skb_core+0x0/0xa80) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x31ae
+ <...>-1420827 [013] ..s1 6316511.011244: f0: (__netif_receive_skb_core+0x0/0xc10) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x4a0d
+ <...>-1420827 [013] ..s1 6316511.011264: f0: (__netif_receive_skb_core+0x0/0xc10) proto=1 ip_src=127.0.0.1 ip_dst=127.0.0.1 data=0x4a15
 ```
 
-协议的获取表达式为 @(struct iphdr *)l3%0->protocol，和之前不一样的是，寄存器的结构体名左括号加了@符号进行特殊标记，表示需要用该结构体来解析skb->data指针数据，结构体名和右括号后加了l3标记（命名为右标记），表示当前skb->data指向了TCP/IP 层3位置。
+​	协议的获取表达式为 @(struct iphdr *)l3%0->protocol，和之前不一样的是，寄存器的结构体名左括号加了@符号进行特殊标记，表示需要用该结构体来解析skb->data指针数据，结构体名和右括号后加了l3标记（命名为右标记），表示当前skb->data指向了TCP/IP 层3位置。
 
-右标记有l2、l3、l4三个选项，也可以不标记，默认为l3，如 ip_src=@(struct iphdr *)%0->saddr，没有右标记。
+- 右标记有l2、l3、l4三个选项，也可以不标记，默认为l3，如 ip_src=@(struct iphdr *)%0->saddr，没有右标记。
+- 报文结构体有 'struct ethhdr', 'struct iphdr', 'struct icmphdr', 'struct tcphdr', 'struct udphdr'五类，如果协议栈层级和报文结构体对应不上，解析器会报参数错误，如右标记为l3，但是报文结构体是 struct ethhdr类型；
+- 'struct icmphdr', 'struct tcphdr', 'struct udphdr'这三个4层结构体增加了xdata成员，用于获取协议对应报文内容。xdata有 cdata. sdata, ldata, qdata, Sdata 五种类型，位宽对应 1 2 4 8 和字符串. 数组下标是按照位宽进行对齐的，如实例表达式中的 data=%0~$(struct icmphdr)l3->sdata[1],sdata[1]表示要提取icmp报文中的2~3字节内容
+- surftrace 会对以 ip_xx开头的变量进行ipv4<->u32 ，如 ip_src=@(struct iphdr *)%0->saddr，会转成对应的IP格式。对B16_、B32_、B64_、b16_、b32_、b64_开头的变量也会进行大小端转换，B开头按照16进制输出，b以10进制输出。
 
-报文结构体有 'struct ethhdr', 'struct iphdr', 'struct icmphdr', 'struct tcphdr', 'struct udphdr'五类，如果协议栈层级和报文结构体对应不上，解析器会报参数错误，如右标记为l3，但是报文结构体是 struct ethhdr类型；
+## 2.5、event
 
-'struct icmphdr', 'struct tcphdr', 'struct udphdr'这三个4层结构体增加了xdata成员，用于获取协议对应报文内容。xdata有 cdata. sdata, ldata, qdata 四类场景，位宽对应 1 2 4 8. 数组下标是按照位宽进行对齐的，如实例表达式中的 data=%0~$(struct icmphdr)l3->sdata[1],sdata[1]表示要提取icmp报文中的2~3字节内容
+​	trace event 信息参考 /sys/kernel/debug/tracing/events目录下的事件 描述，以追踪wakeup等待超过10ms任务为例
 
-surftrace 会对以 ip_xx开头的变量进行ipv4<->u32 ，如 ip_src=@(struct iphdr *)%0->saddr，会转成对应的IP格式。对B16\_、B32\_、B64\_、b16\_、b32\_、b64\_开头的变量也会进行大小端转换，B开头按照16进制输出，b以10进制输出。
+​	命令行 surftrace 'e sched/sched_stat_wait f:delay>1000000'
 
-## 3.8 event 事件处理
-trace event 信息参考 /sys/kernel/debug/tracing/events目录下的事件 描述，以追踪wakeup等待超过10ms任务为例，
 ```bash
-#./surftrace.py 'e sched/sched_stat_wait f:delay>1000000'
+surftrace 'e sched/sched_stat_wait f:delay>1000000'
 echo 'delay>1000000' > /sys/kernel/debug/tracing/instances/surftrace/events/sched/sched_stat_wait/filter
 echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/sched/sched_stat_wait/enable
 echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
 echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
- <idle>-0     [001] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046552 delay=87023763 [ns]
+<idle>-0     [001] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046552 delay=87023763 [ns]
  <idle>-0     [005] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046617 delay=87360020 [ns]
-
 ```
+
+
+
+# 3、surfGuide 使用
+
+​	surfGuide可以直接运行，命令行已经有一些使用帮助提示。现在手头任务紧张，等有空了再补充完善吧。
+
+​	安装：pip install surfGuide
+
+​	然后运行 surfGuide 就可以使用了。
+
+# 4、使用surfGuide发布通用命令
+
+同上
+
+# 5、接管surftrace数据进行开发处理
+
+同上上

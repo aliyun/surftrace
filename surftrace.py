@@ -135,8 +135,8 @@ class ExecException(Exception):
 
 # copy from surf expression.py
 probeReserveVars = ('common_pid', 'common_preempt_count', 'common_flags', 'common_type')
-archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
-            'x86': ('di', 'si', 'dx', 'cx'),
+archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9', 'ax', 'bx'),
+            'x86': ('di', 'si', 'dx', 'cx', 'ax', 'bx'),
             'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'),}
 
 def maxNameString(cells, t):
@@ -373,7 +373,22 @@ class ftrace(object):
         try:
             os.write(fd, v.encode())
         except OSError as e:
-            raise InvalidArgsException("set arg %s to %s failed, return %s." % (v, path, e.message))
+            raise InvalidArgsException("set arg %s to %s failed, report:%s." % (v, path, e.strerror))
+        finally:
+            os.close(fd)
+
+    def _echoFilter(self, path, value):
+        cmd = "echo %s > %s" % (value, path)
+        saveCmd(cmd)
+        if self._echo:
+            print(cmd)
+
+        fd = os.open(path, os.O_WRONLY)
+        v = value[1:-1]
+        try:
+            os.write(fd, v.encode())
+        except OSError as e:
+            raise InvalidArgsException("set arg %s to %s failed, report:%s." % (v, path, e.strerror))
         finally:
             os.close(fd)
 
@@ -1110,7 +1125,7 @@ class surftrace(ftrace):
                 return
             else:
                 fPath = os.path.join(eDir, 'filter')
-                self._echoPath(fPath, "'" + filter + "'")
+                self._echoFilter(fPath, "'" + filter + "'")
         if self._show:
             self.__showExpression('e', e)
             return
@@ -1568,7 +1583,9 @@ class surftrace(ftrace):
                 self.__showExpression(res['type'], cmd, filter)
             else:
                 fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % name
-                self._echoPath(fPath, "'%s'" % filter)
+                self._echoFilter(fPath, "'%s'" % filter)
+                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+                self._echoPath(fPath, "1")
         else:
             if self._show:
                 self.__showExpression(res['type'], cmd)
@@ -1676,7 +1693,7 @@ class surftrace(ftrace):
         self._probes.append(resFxpr['name'])
         if res['filter'] != "":
             fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % resFxpr['name']
-            self._echoPath(fPath, "'%s'" % res['filter'])
+            self._echoFilter(fPath, "'%s'" % res['filter'])
 
         fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + resFxpr['name'] + "/enable"
         self._echoPath(fPath, "1")

@@ -330,7 +330,7 @@ class CargsGuide(CconBase):
                 v = self.__netParse(sType, v)
         return sType, v
 
-    def _cellCheck(self, cells, reg):
+    def _cellCheck(self, cells, reg, getCell=False):
         if reg == "$retval":
             self._strFxpr = reg
         else:
@@ -384,7 +384,8 @@ class CargsGuide(CconBase):
                 cells[i + 2] = tMem
                 lastCell = {"type": tMem}
             i += 2
-        self._fxprAddSuffix(lastCell)
+        if not getCell:
+            self._fxprAddSuffix(lastCell)
         return lastCell
 
     def __getExprStruct(self, e):
@@ -393,7 +394,7 @@ class CargsGuide(CconBase):
 
         showType, reg, argt, xpr = self.__getExprArgi(e)
         cells = self._splitPr(argt, xpr)
-        return self._cellCheck(cells, reg)
+        return self._cellCheck(cells, reg, getCell=True)
 
     def _checkPoint(self, text):
         expr = splitExpr(text)[-1]
