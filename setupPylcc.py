@@ -2,25 +2,25 @@
 # cython:language_level=3
 """
 -------------------------------------------------
-   File Name：     setup
+   File Name：     setupPylcc
    Description :
    Author :       liaozhaoyan
-   date：          2022/1/14
+   date：          2022/1/17
 -------------------------------------------------
    Change Activity:
-                   2022/1/14:
+                   2022/1/17:
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.4'
+VERSION = '0.1'
 
 from setuptools import setup, find_packages
 
-setup(name='surfGuide',
+setup(name='pylcc',
       version=VERSION,
-      description="surfGuide is a tool that guide you to use surftrace.",
-      long_description='surfGuide is a tool that guide you to use surftrace.',
+      description="pylcc is short for python libbpf compile collections",
+      long_description='pylcc is short for python libbpf compile collections',
       classifiers=["Topic :: System :: Operating System Kernels :: Linux",
                    "Programming Language :: Python",
                    "Programming Language :: Python :: 2",
@@ -37,16 +37,11 @@ setup(name='surfGuide',
       author='liaozhaoyan',
       author_email='zhoayan.liao@linux.alibaba.com',
       url="https://github.com/aliyun/surftrace",
-      license='LGPL',
-      packages=["surfGuide"],
+      license='MIT',
+      packages=["pylcc"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=['urwid', 'requests', 'surftrace>=0.1'],
-      entry_points={
-          'console_scripts': [
-              "surfGuide = surfGuide.surfGuide:main",
-          ]
-      }
+      install_requires=['surftrace>=0.1'],
       )
 
 if __name__ == "__main__":

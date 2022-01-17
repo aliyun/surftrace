@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.3'
+VERSION = '0.4'
 
 from setuptools import setup, find_packages
 
@@ -41,7 +41,6 @@ setup(name='surftrace',
       packages=["surftrace"],
       include_package_data=True,
       zip_safe=True,
-      python_requires=">=2.7, >=3.5",
       install_requires=[],
       entry_points={
           'console_scripts': [
