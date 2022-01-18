@@ -15,6 +15,7 @@ __author__ = 'liaozhaoyan'
 
 import ctypes as ct
 import struct
+from sys import version_info
 
 try:
     from collections.abc import MutableMapping
@@ -59,12 +60,14 @@ class CtypeData(object):
                     size = self.__strlen(stream, dFormat['array'])
                     tp = struct.unpack("%ds" % size, stream[:size])[0]
                     s = ''
-                    for t in tp:
-                        if t != 0:
-                            s += chr(t)
-                        else:
-                            break
-                    # s = ''.join(tp)
+                    if version_info.major == 2:
+                        s = ''.join(tp)
+                    else:
+                        for t in tp:
+                            if t != 0:
+                                s += chr(t)
+                            else:
+                                break
                     return s
                 else:
                     return struct.unpack(dFormat['format'].encode('utf-8'),

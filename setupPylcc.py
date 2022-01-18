@@ -13,9 +13,9 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.1'
+VERSION = '0.1.1'
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(name='pylcc',
       version=VERSION,
