@@ -30,7 +30,7 @@ LBC_COMPILE_PORT = 7654
 buffSize = 80 * 1024 * 1024
 
 class ClbcBase(object):
-    def __init__(self, bpf, bpf_str="", server="", arch="", ver="", env="", workPath=None):
+    def __init__(self, bpf, bpf_str="", server="pylcc.openanolis.cn", arch="", ver="", env="", workPath=None):
         save = None
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
@@ -41,7 +41,7 @@ class ClbcBase(object):
         self.__need_del = False
         self._server = server
         c = CexecCmd()
-        self.__checkRoot()
+        self.__checkRoot(c)
         self._env = env
 
         if ver == "":
@@ -86,14 +86,7 @@ class ClbcBase(object):
         _ct.dlclose(so._handle)
 
     def _getArchitecture(self, c):
-        lines = c.cmd('lscpu').split('\n')
-        for line in lines:
-            if line.startswith("Architecture"):
-                arch = line.split(":", 1)[1].strip()
-                if arch.startswith("arm"):
-                    return "arm"
-                return arch
-        return "Unkown"
+        return c.cmd('uname -m')
 
     def __getSo(self, bpf, s, ver, arch):
         bpf_so = bpf + ".so"
