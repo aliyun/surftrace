@@ -2,16 +2,24 @@
 # cython:language_level=3
 """
 -------------------------------------------------
-   File Name：     __init__.py
+   File Name：     entry
    Description :
    Author :       liaozhaoyan
-   date：          2021/12/9
+   date：          2022/1/20
 -------------------------------------------------
    Change Activity:
-                   2021/12/9:
+                   2022/1/20:
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
+try:
+    from menus.surfGuide import CsurfGuide
+except:
+    from surfGuide.menus.surfGuide import CsurfGuide
+
+def main():
+    guide = CsurfGuide()
+    guide.loop()
 
 if __name__ == "__main__":
-    pass
+    main()

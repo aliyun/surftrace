@@ -14,7 +14,6 @@
 __author__ = 'liaozhaoyan'
 
 import sys
-sys.path.append("../")
 import socket
 import json
 import os
@@ -37,7 +36,7 @@ class ClbcClient(object):
         if ver == "":
             ver = c.cmd('uname -r')
         if arch == "":
-            arch = self._getArchitecture(c)
+            arch = c.cmd('uname -m')
         self._server = server
         self._ver = ver
         self._arch = arch

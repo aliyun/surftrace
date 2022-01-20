@@ -15,8 +15,8 @@ __author__ = 'liaozhaoyan'
 
 import urwid
 import re
-from .conBase import CconBase, log
-from .surfExpression import ExprException, stripPoint, splitExpr, isStruct
+from conBase import CconBase, log
+from surfExpression import ExprException, stripPoint, splitExpr, isStruct
 
 class CeditFilter(CconBase):
     def __init__(self, parent, res, availVars):

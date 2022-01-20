@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.4'
+VERSION = '0.4.1'
 
 from setuptools import setup, find_packages
 
@@ -38,13 +38,13 @@ setup(name='surfGuide',
       author_email='zhoayan.liao@linux.alibaba.com',
       url="https://github.com/aliyun/surftrace",
       license='LGPL',
-      packages=["surfGuide"],
+      packages=["surfGuide", "surfGuide/menus"],
       include_package_data=True,
       zip_safe=True,
       install_requires=['urwid', 'requests', 'surftrace>=0.1'],
       entry_points={
           'console_scripts': [
-              "surfGuide = surfGuide.surfGuide:main",
+              "surfGuide = surfGuide.entry:main",
           ]
       }
       )

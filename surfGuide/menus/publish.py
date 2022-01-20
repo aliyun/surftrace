@@ -22,8 +22,7 @@ from threading import Thread
 from zlib import decompress, compress, Z_BEST_COMPRESSION
 from base64 import b64encode
 
-from .conBase import CconBase, log
-sys.path.append("..")
+from conBase import CconBase, log
 from surftrace import surftrace, setupParser, InvalidArgsException, DbException
 
 class pubThread(Thread):
@@ -116,9 +115,10 @@ class Cpublish(CconBase):
         fName += ".py"
         if not self._checkPub(fName, w):
             return
-        bin = compress(self._seq, Z_BEST_COMPRESSION)
+        bin = compress(self._seq.encode(), Z_BEST_COMPRESSION)
         b64 = b64encode(bin)
-        model = "../example/pubLoader.py"
+        path = os.path.split(os.path.realpath(__file__))[0]
+        model = os.path.join(path, "pubLoader.py")
         with open(model, "r") as f:
             src = f.read()
         src = src.replace('CpubLoader', 'C%sLoader' % t)

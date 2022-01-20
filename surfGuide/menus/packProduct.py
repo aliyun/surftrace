@@ -20,9 +20,9 @@ import re
 from re import error as reError
 import requests
 import urwid
-from .conBase import CconBase, log
-from .showVersions import CshowVersions
-from .publish import Cpublish
+from conBase import CconBase, log
+from showVersions import CshowVersions
+from publish import Cpublish
 
 verUrl = "http://pylcc.openanolis.cn/version/"
 SHOW_VERS = 8
@@ -102,7 +102,7 @@ class CpackProduct(CconBase):
 
     def __setupVers(self, w, vers):
         arch = w.get_label()
-        verList = requests.get("%s%s.txt" % (verUrl, arch)).content.split("\n")[:-1]
+        verList = requests.get("%s%s.txt" % (verUrl, arch)).content.decode().split("\n")[:-1]
         vers[arch] = verList
         return len(verList)
 

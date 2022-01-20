@@ -15,10 +15,10 @@ __author__ = 'liaozhaoyan'
 
 import re
 import urwid
-from .surfExpression import maxNameString, unpackRes, probeReserveVars
-from .conBase import CconBase, log
-from .argsGuide import CargsGuide
-from .editFilter import CeditFilter
+from surfExpression import maxNameString, unpackRes, probeReserveVars
+from conBase import CconBase, log
+from argsGuide import CargsGuide
+from editFilter import CeditFilter
 
 class CeditJprobe(CconBase):
     def __init__(self, parent, res, index):

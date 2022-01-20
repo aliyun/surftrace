@@ -458,14 +458,7 @@ class ClbcClient(object):
         self._fastOff = False
 
     def _getArchitecture(self, c):
-        lines = c.cmd('lscpu').split('\n')
-        for line in lines:
-            if line.startswith("Architecture"):
-                arch = line.split(":", 1)[1].strip()
-                if arch.startswith("arm"):
-                    return "arm"
-                return arch
-        return "Unkown"
+        return c.cmd('uname -m')
 
     def _setupSocket(self):
         addr = (self._server, LBC_COMPILE_PORT)

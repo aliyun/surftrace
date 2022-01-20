@@ -16,18 +16,16 @@ __author__ = 'liaozhaoyan'
 import sys
 import time
 
-sys.path.append("..")
-
 import os
 import urwid
-from .conBase import CconBase, log
-from .typeChooser import CtypeChooser
-from .editJprobe import CeditJprobe
-from .editEvent import CeditEvent
-from .saveasWidget import CsaveasWidget
-from .packProduct import CpackProduct
-from .surfExpression import *
-from .surfThread import CsurfThread
+from conBase import CconBase, log
+from typeChooser import CtypeChooser
+from editJprobe import CeditJprobe
+from editEvent import CeditEvent
+from saveasWidget import CsaveasWidget
+from packProduct import CpackProduct
+from surfExpression import *
+from surfThread import CsurfThread
 
 MAX_LINE = 10
 

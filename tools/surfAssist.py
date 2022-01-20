@@ -2,16 +2,17 @@
 # cython:language_level=3
 """
 -------------------------------------------------
-   File Name：     __init__.py
+   File Name：     surfAssist
    Description :
    Author :       liaozhaoyan
-   date：          2021/12/9
+   date：          2022/1/19
 -------------------------------------------------
    Change Activity:
-                   2021/12/9:
+                   2022/1/19:
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
+from surftrace import CexecCmd
 
 if __name__ == "__main__":
     pass

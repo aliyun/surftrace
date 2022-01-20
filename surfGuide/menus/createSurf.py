@@ -16,8 +16,8 @@ __author__ = 'liaozhaoyan'
 import os
 import re
 import urwid
-from .conBase import CconBase, log
-from .editExpression import CeditExpression
+from conBase import CconBase, log
+from editExpression import CeditExpression
 
 class CcreateSurf(CconBase):
     def __init__(self, dirName):
