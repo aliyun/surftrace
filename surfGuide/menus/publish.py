@@ -149,6 +149,9 @@ class Cpublish(CconBase):
         self._pub.start()
 
     def _cb_save_clk(self, widget):
+        if type(widget) is tuple:
+            widget = widget[0]
+
         if self._pub and self._pub.working():
             return
         if self._seq == "":

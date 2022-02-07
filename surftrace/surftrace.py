@@ -135,9 +135,13 @@ class ExecException(Exception):
 
 # copy from surf expression.py
 probeReserveVars = ('common_pid', 'common_preempt_count', 'common_flags', 'common_type')
-archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9'),
+archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9', 'ax', 'bx',
+                       'sp', 'bp', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15',),
             'x86': ('di', 'si', 'dx', 'cx'),
-            'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'),}
+            'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9',
+                        'x10', 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19',
+                        'x20', 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29',
+                        'x30', 'x31'),}
 
 def maxNameString(cells, t):
     rs = cells[0][t]
@@ -1251,7 +1255,7 @@ class surftrace(ftrace):
             raise DbException('db get %s return %s' % (func, res['log']))
         return res
     
-    def __getExprArgi(self, e): 
+    def __getExprArgi(self, e, inFlag):
         # expression: a=@(struct iphdr *)l4%1->saddr uesrs=!(struct task_struct *)%0->mm->mm_users
         # e is already checked at self.__checkBegExpr
         var, expr = e.split("=", 1)
@@ -1269,7 +1273,10 @@ class surftrace(ftrace):
             else:
                 argi = regIndex(reg, self._arch)
             if types == '':
-                argt = self._func['args'][argi]
+                if inFlag:
+                    argt = 'u64'
+                else:
+                    argt = self._func['args'][argi]
             else:
                 argt = types
             regArch = transReg(argi, self._arch)
@@ -1492,11 +1499,11 @@ class surftrace(ftrace):
         self._fxprAddSuffix(lastCell)
         return lastCell
             
-    def _checkExpr(self, e):
+    def _checkExpr(self, e, inFlag):
         self.__checkBegExpr(e)
         self.__checkFormat(e)
 
-        showType, reg, argt, xpr = self.__getExprArgi(e)
+        showType, reg, argt, xpr = self.__getExprArgi(e, inFlag)
 
         cells = self._splitPr(argt, xpr)
         res = self._cellCheck(cells, reg)
@@ -1534,10 +1541,12 @@ class surftrace(ftrace):
         name = "f%d" % i
         cmd = "%s:f%d " % (res['type'], i)
         symbol = res['symbol']
+        inFlag = False
 
         func = symbol
         if "+" in func:
             func = func.split("+", 1)[0]
+            inFlag = True
         try:
             self._func = self._getVmFunc(func)['res'][0]
         except (TypeError, KeyError, IndexError):
@@ -1549,7 +1558,7 @@ class surftrace(ftrace):
             if expr == "":
                 continue
             self._res = res
-            self._checkExpr(expr)
+            self._checkExpr(expr, inFlag)
             var, _ = expr.split("=", 1)
             if var in vars:
                 raise ExprException("var %s is already used at previous expression" % var)

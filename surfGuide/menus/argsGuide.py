@@ -170,6 +170,7 @@ class CargsGuide(CconBase):
             if '[' not in sMem:
                 raise ExprException("member %s is an array, should add [, member is %s" % (name, sMem))
             try:
+                log("array: %s, %s" % (sMem, name))
                 iMem = self._reSquareBrackets.findall(sMem)[0]
                 iName = self._reSquareBrackets.findall(name)[0]
             except TypeError:
@@ -256,6 +257,7 @@ class CargsGuide(CconBase):
             add = int(self._reSquareBrackets.findall(member)[0])
             member = member.split('[')[0]
         structName = structName.replace("*", "").strip()
+        log("%s, %s" % (structName, member))
         dRes = self._getVmStruct(structName)
         for cell in dRes['res']['cell']:
             name = cell['name']

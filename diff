@@ -1,0 +1,83 @@
+138,140c138,144
+< archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9', 'ax', 'bx'),
+<             'x86': ('di', 'si', 'dx', 'cx', 'ax', 'bx'),
+<             'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'),}
+---
+> archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9', 'ax', 'bx',
+>                        'sp', 'bp', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15',),
+>             'x86': ('di', 'si', 'dx', 'cx'),
+>             'aarch64': ('x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8', 'x9',
+>                         'x10', 'x11', 'x12', 'x13', 'x14', 'x15', 'x16', 'x17', 'x18', 'x19',
+>                         'x20', 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29',
+>                         'x30', 'x31'),}
+376,391c380
+<             raise InvalidArgsException("set arg %s to %s failed, report:%s." % (v, path, e.strerror))
+<         finally:
+<             os.close(fd)
+< 
+<     def _echoFilter(self, path, value):
+<         cmd = "echo %s > %s" % (value, path)
+<         saveCmd(cmd)
+<         if self._echo:
+<             print(cmd)
+< 
+<         fd = os.open(path, os.O_WRONLY)
+<         v = value[1:-1]
+<         try:
+<             os.write(fd, v.encode())
+<         except OSError as e:
+<             raise InvalidArgsException("set arg %s to %s failed, report:%s." % (v, path, e.strerror))
+---
+>             raise InvalidArgsException("set arg %s to %s failed, return %s." % (v, path, e.message))
+461c450,457
+<         return c.cmd('uname -m')
+---
+>         lines = c.cmd('lscpu').split('\n')
+>         for line in lines:
+>             if line.startswith("Architecture"):
+>                 arch = line.split(":", 1)[1].strip()
+>                 if arch.startswith("arm"):
+>                     return "arm"
+>                 return arch
+>         return "Unkown"
+1121c1117
+<                 self._echoFilter(fPath, "'" + filter + "'")
+---
+>                 self._echoPath(fPath, "'" + filter + "'")
+1262c1258
+<     def __getExprArgi(self, e): 
+---
+>     def __getExprArgi(self, e, inFlag):
+1280c1276,1279
+<                 argt = self._func['args'][argi]
+---
+>                 if inFlag:
+>                     argt = 'u64'
+>                 else:
+>                     argt = self._func['args'][argi]
+1503c1502
+<     def _checkExpr(self, e):
+---
+>     def _checkExpr(self, e, inFlag):
+1507c1506
+<         showType, reg, argt, xpr = self.__getExprArgi(e)
+---
+>         showType, reg, argt, xpr = self.__getExprArgi(e, inFlag)
+1544a1544
+>         inFlag = False
+1548a1549
+>             inFlag = True
+1560c1561
+<             self._checkExpr(expr)
+---
+>             self._checkExpr(expr, inFlag)
+1579,1581c1580
+<                 self._echoFilter(fPath, "'%s'" % filter)
+<                 fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+<                 self._echoPath(fPath, "1")
+---
+>                 self._echoPath(fPath, "'%s'" % filter)
+1689c1688
+<             self._echoFilter(fPath, "'%s'" % res['filter'])
+---
+>             self._echoPath(fPath, "'%s'" % res['filter'])
