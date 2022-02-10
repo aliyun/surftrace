@@ -14,7 +14,6 @@ __author__ = 'liaozhaoyan'
 
 import os
 import math
-import random
 from collections import deque
 
 HIST2_MAX = 65
@@ -87,14 +86,14 @@ class CsurfList(deque):
             if i == 0:
                 head = "[0, 10)"
             else:
-                head = "[%s,%s)" % (self._transUnit10(10 ** (i - 1)), self._transUnit10(10 ** i))
+                head = "[%s,%s)" % (self._transUnit10(10 ** i), self._transUnit10(10 ** (i + 1)))
             print("%-12s%-4s|%s%s|" % (head, self._transUnit10(lShow[i]), fill, blank))
 
     def hist2(self):
         lShow = [0] * HIST2_MAX
         for v in self:
             if v > 0:
-                ind = int(math.log(v, 2))
+                ind = int(math.log2(v))
                 lShow[ind + 1] += 1
             else:
                 lShow[0] += 1
@@ -104,19 +103,11 @@ class CsurfList(deque):
         lShow = [0] * HIST10_MAX
         for v in self:
             if v > 0:
-                ind = int(math.log(v, 10))
+                ind = len(str(v)) - 1
                 lShow[ind] += 1
             else:
                 lShow[0] += 1
         self._showHist10(lShow)
 
 if __name__ == "__main__":
-    l = CsurfList()
-    l.append(0)
-    for i in range(1023):
-        l.append(random.randint(0, 1024*1024))
-    print("hist2:")
-    l.hist2()
-    print("hist10:")
-    l.hist10()
     pass
