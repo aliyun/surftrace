@@ -467,7 +467,10 @@ class ClbcClient(object):
     def _setupSocket(self):
         addr = (self._server, LBC_COMPILE_PORT)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(addr)
+        try:
+            s.connect(addr)
+        except socket.gaierror:
+            raise DbException("cannot connect remote server:%s" % self._server)
         return s
 
     @staticmethod

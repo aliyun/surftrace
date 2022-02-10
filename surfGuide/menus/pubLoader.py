@@ -27,20 +27,10 @@ class CpubLoader(object):
         self._loadDicts(path)
         super(CpubLoader, self).__init__()
 
-    def _getArchitecture(self, c):
-        lines = c.cmd('lscpu').split('\n')
-        for line in lines:
-            if line.startswith("Architecture"):
-                arch = line.split(":", 1)[1].strip()
-                if arch.startswith("arm"):
-                    return "arm"
-                return arch
-        return "Unkown"
-
     def _setupEnvs(self):
         c = CexecCmd()
         ver = c.cmd('uname -r')
-        arch = self._getArchitecture(c)
+        arch = c.cmd('uname -m')
         return ver, arch
 
     def _setupSurf(self, verD, echo=True):
@@ -68,7 +58,7 @@ class CpubLoader(object):
         if pubString == "to_be_replaced.":
             raise InvalidArgsException("args error: you should set a file to load.")
         bin = b64decode(pubString)
-        vers = decompress(bin)
+        vers = decompress(bin).decode()
         self._setupVers(vers)
 
     def _loadBin(self, path):
@@ -95,14 +85,29 @@ class CpubLoader(object):
                 return self._loadOrig(path)
             elif path.endswith(".bin"):
                 return self._loadBin(path)
-        raise InvalidArgsException("")
+        raise InvalidArgsException("no pub files.")
 
     def start(self):
         self._surf.start()
         self._surf.loop()
 
+def showSupportVersions(pub):
+    if pub.startswith("to_be_rep"):
+        print("no string to publish.")
+        return
+    bin = b64decode(pub)
+    vers = decompress(bin).decode().split('\n')
+    print("expression to parse: %s" % ";".join(json.loads(vers[0])['cell']))
+    print("support versions:")
+    for cell in vers[1:]:
+        verD = json.loads(cell)
+        print("arch: %s, kernel: %s" % (verD['arch'], verD['ver']))
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
+        if sys.argv[1] in ("-h", "--help"):
+            showSupportVersions(pubString)
+            sys.exit(0)
         pub = CpubLoader(sys.argv[1])
     else:
         pub = CpubLoader()

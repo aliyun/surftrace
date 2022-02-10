@@ -122,7 +122,7 @@ class Cpublish(CconBase):
         with open(model, "r") as f:
             src = f.read()
         src = src.replace('CpubLoader', 'C%sLoader' % t)
-        src = src.replace('pubString = "to_be_replaced."', 'pubString = "%s"' % b64)
+        src = src.replace('pubString = "to_be_replaced."', 'pubString = "%s"' % b64.decode())
         with open(fName, "w") as f:
             f.write(src)
         self._footer.set_text("%s is saved" % fName)
