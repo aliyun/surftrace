@@ -33,7 +33,7 @@ class CpubLoader(object):
         arch = c.cmd('uname -m')
         return ver, arch
 
-    def _setupSurf(self, verD, echo=True):
+    def _setupSurf(self, verD, echo=False):
         if hasattr(self, "_cbOrig"):
             self._surf = surftrace(verD, None, echo=echo, cbOrig=self._cbOrig)
         elif hasattr(self, "_cb"):
