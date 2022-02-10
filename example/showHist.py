@@ -11,9 +11,8 @@
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
-import sys
-sys.path.append("../surftrace")
-from surfCommon import CsurfList
+
+from surftrace.surfCommon import CsurfList
 import random
 
 if __name__ == "__main__":
