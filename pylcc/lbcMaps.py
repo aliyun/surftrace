@@ -21,8 +21,7 @@ try:
     from collections.abc import MutableMapping
 except ImportError:
     from collections import MutableMapping
-from pylcc.localExceptions import InvalidArgsException
-
+from surftrace import InvalidArgsException
 
 class CtypeData(object):
     def __init__(self, dForm, data):

@@ -102,7 +102,8 @@ class CpackProduct(CconBase):
 
     def __setupVers(self, w, vers):
         arch = w.get_label()
-        verList = requests.get("%s%s.txt" % (verUrl, arch)).content.decode().split("\n")[:-1]
+        url = self.checkUrl(verUrl)
+        verList = requests.get("%s%s.txt" % (url, arch)).content.decode().split("\n")[:-1]
         vers[arch] = verList
         return len(verList)
 

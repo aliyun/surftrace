@@ -13,6 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
+import os
 import urwid
 from datetime import datetime
 import re
@@ -276,6 +277,12 @@ class CconBase(object):
 
     def key_proc(self, key):
         pass
+
+    def checkUrl(self, url):
+        if "LBC_SERVER" in os.environ:
+            server = os.environ["LBC_SERVER"]
+            url = url.replace("pylcc.openanolis.cn", server)
+        return url
 
     def loop(self):
         CconBase._loop = urwid.MainLoop(self.view, CconBase.palette, unhandled_input=self.unhandled_input)

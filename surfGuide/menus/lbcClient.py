@@ -32,6 +32,8 @@ class DbException(Exception):
 class ClbcClient(object):
     def __init__(self, server="pylcc.openanolis.cn", ver="", arch=""):
         super(ClbcClient, self).__init__()
+        if "LBC_SERVER" in os.environ:
+            server = os.environ["LBC_SERVER"]
         c = CexecCmd()
         if ver == "":
             ver = c.cmd('uname -r')

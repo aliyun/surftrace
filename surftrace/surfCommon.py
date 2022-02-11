@@ -12,9 +12,8 @@
 """
 __author__ = 'liaozhaoyan'
 
-import os
-import math
 from collections import deque
+from surftrace import CexecCmd
 
 HIST2_MAX = 65
 HIST10_MAX = 20
@@ -35,7 +34,24 @@ class CsurfList(deque):
             raise ValueError("The input list is empty or all zero.")
         return start, end
 
-    def _transUnit2(self, v):
+    @staticmethod
+    def _log2(v):
+        i = 0
+        while v:
+            v >>= 1
+            i += 1
+        return i
+
+    @staticmethod
+    def _log10(v):
+        i = 0
+        while v >= 10:
+            v /= 10
+            i += 1
+        return i
+
+    @staticmethod
+    def _transUnit2(v):
         if v < 1:
             return "0"
         v -= 1
@@ -50,16 +66,22 @@ class CsurfList(deque):
         if v < 1:
             return "0"
         unit = ""
-        ind = int((len(str(v)) - 1) / 3)
+        ind = int(self._log10(v) / 3)
         if ind > 0:
             unit = HIST_UNIT[ind - 1]
             v /= 1000 ** ind
         return "%d%s" % (v, unit)
 
+    @staticmethod
+    def _getColumns():
+        c = CexecCmd()
+        vs = c.cmd("stty size")
+        return int(vs.split(' ')[1])
+
     def _showHist2(self, lShow):
         start, end = self._getRegion(lShow)
         maxV = len(self)
-        maxColumns = os.get_terminal_size().columns
+        maxColumns = self._getColumns()
         if maxColumns < 30:
             raise OverflowError("this terminal is too short to show histogram.")
         """[256K,512K) 1004|@@@@@@@@@@|"""
@@ -74,7 +96,7 @@ class CsurfList(deque):
     def _showHist10(self, lShow):
         start, end = self._getRegion(lShow)
         maxV = len(self)
-        maxColumns = os.get_terminal_size().columns
+        maxColumns = self._getColumns()
         if maxColumns < 30:
             raise OverflowError("this terminal is too short to show histogram.")
         """[10K,100K)  1004|@@@@@@@@@@|"""
@@ -93,7 +115,7 @@ class CsurfList(deque):
         lShow = [0] * HIST2_MAX
         for v in self:
             if v > 0:
-                ind = int(math.log2(v))
+                ind = int(self._log2(v))
                 lShow[ind + 1] += 1
             else:
                 lShow[0] += 1
@@ -103,11 +125,19 @@ class CsurfList(deque):
         lShow = [0] * HIST10_MAX
         for v in self:
             if v > 0:
-                ind = len(str(v)) - 1
+                ind = self._log10(v)
                 lShow[ind] += 1
             else:
                 lShow[0] += 1
         self._showHist10(lShow)
 
+import random
 if __name__ == "__main__":
+    l = CsurfList(2048)
+    for i in range(2048):
+        l.append(random.randint(0, 1024 * 1024))
+    print("hist2:")
+    l.hist2()
+    print("hist10:")
+    l.hist10()
     pass

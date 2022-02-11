@@ -30,10 +30,12 @@ LBC_COMPILE_PORT = 7654
 buffSize = 80 * 1024 * 1024
 
 class ClbcBase(object):
-    def __init__(self, bpf, bpf_str="", server="pylcc.openanolis.cn", arch="", ver="", env="", workPath=None):
+    def __init__(self, bpf, bpf_str="", server="pylcc.openanolis.cn", arch="", ver="", env="", workPath=None, logLevel=-1):
         save = None
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
+        if "LBC_LOGLEVEL" in os.environ:
+            logLevel = int(os.environ["LBC_LOGLEVEL"])
         if workPath:
             save = os.getcwd()
             os.chdir(workPath)
@@ -43,6 +45,7 @@ class ClbcBase(object):
         c = CexecCmd()
         self.__checkRoot(c)
         self._env = env
+        self._logLevel = logLevel
 
         if ver == "":
             ver = c.cmd('uname -r')
@@ -212,7 +215,8 @@ class ClbcBase(object):
         self.__need_del = True
         self.__so = ct.CDLL("./" + bpf_so)
         self.__so.lbc_bpf_init.restype = ct.c_int
-        r = self.__so.lbc_bpf_init()
+        self.__so.lbc_bpf_init.argtypes = [ct.c_int]
+        r = self.__so.lbc_bpf_init(self._logLevel)
         if r != 0:
             self.__need_del = False
             raise InvalidArgsException("so init failed")

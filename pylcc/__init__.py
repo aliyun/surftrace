@@ -11,7 +11,6 @@
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
-from .localExceptions import *
 from .lbcMaps import *
 from .lbcBase import *
 
