@@ -1030,6 +1030,7 @@ class surftrace(ftrace):
         self._args = args
         self._stack = stack
         if isinstance(args, list):
+            self._reSurfComm = re.compile(r"[a-zA-z][a-zA-z0-9_]*=\$comm")
             self._reSurfProbe = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)%")
             self._reSurfRet = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)\$retval")
             self._reLayer = re.compile(r"l[234]")
@@ -1161,6 +1162,9 @@ class surftrace(ftrace):
         self.__format = 'u'
         if flag[0] in "SUX":
             self.__format = str.lower(flag[0])
+
+    def __checkSurfComm(self, e):
+        return self._reSurfComm.match(e)
 
     def __checkBegExpr(self, e):
         if self._res['type'] == 'p':
@@ -1513,6 +1517,11 @@ class surftrace(ftrace):
         return lastCell
 
     def _checkExpr(self, e, inFlag):
+        res = self.__checkSurfComm(e)
+        if res:
+            self._strFxpr = "$comm"
+            return {"type": "$comm"}
+
         self.__checkBegExpr(e)
         self.__checkFormat(e)
 
