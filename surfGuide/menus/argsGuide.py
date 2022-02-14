@@ -13,6 +13,8 @@
 """
 __author__ = 'liaozhaoyan'
 
+import cmd
+
 import urwid
 import re
 from conBase import CconBase, log
@@ -20,6 +22,7 @@ from structSelector import CstructSelctor
 from surfExpression import ExprException, stripPoint, splitExpr, isStruct, probeReserveVars, regIndex, transReg
 from lbcClient import DbException
 import inspect
+from surftrace import CexecCmd
 
 class CargsGuide(CconBase):
     def __init__(self, func, parent, res):
@@ -27,8 +30,11 @@ class CargsGuide(CconBase):
         self._parent = parent
         self._res = res
         super(CargsGuide, self).__init__()
-        self._reSurfProbe = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)%")
-        self._reSurfRet = re.compile(r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)\$retval")
+        self._reSurfComm = re.compile(r"[a-zA-z][a-zA-z0-9_]*=\$comm")
+        self._reSurfProbe = re.compile(
+            r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)(%|@|\$stack)")
+        self._reSurfRet = re.compile(
+            r"[a-zA-z][a-zA-z0-9_]*=[SUX]?(@\(struct .*\*\)(l[234]|)|\!\(.*\)|)(\$retval|\$stack|@|%)")
         self._reLayer = re.compile(r"l[234]")
         self._reBrackets = re.compile(r"(?<=\().+?(?=\))")
         self._reSquareBrackets = re.compile(r"(?<=\[).+?(?=\])")
@@ -41,6 +47,10 @@ class CargsGuide(CconBase):
                           }
         self._strFxpr = ""
         self.__format = 'u'
+        self._argSym = ""
+
+        c = CexecCmd()
+        self._arch = c.cmd('uname -m')
 
     def _memINStruct(self, mem, tStruct):
         if tStruct is None:
@@ -72,13 +82,14 @@ class CargsGuide(CconBase):
 
     def _splitXpr(self, xpr):
         for i, c in enumerate(xpr):
-            if c in ('.', '-'):
+            if c == '.' or (c == '-' and xpr[i + 1] == '>'):
                 return xpr[:i], xpr[i:]
         return xpr, ''
 
-    def __getExprArgi(self, e):
+    def __getExprArgi(self, e, inFlag):
         # expression: a=@(struct iphdr *)l4%1->saddr uesrs=!(struct task_struct *)%0->mm->mm_users
         # e is already checked at self.__checkBegExpr
+        argModeD = {'%': "mReg", '@': "mAddr", "$": "mVar"}
         var, expr = e.split("=", 1)
         self.__checkVar(var)
 
@@ -86,25 +97,40 @@ class CargsGuide(CconBase):
         if expr[0] in ('S', 'U', 'X'):
             expr = expr[1:]
             showType = expr[0]
-        if self._res['type'] == 'p':
-            types, xpr = expr.split('%', 1)
-            reg, xpr = self._splitXpr(xpr)
+
+        argMode = "None"
+        for k in argModeD.keys():
+            if k in expr:
+                self._argSym = k
+                argMode = argModeD[k]
+                types, xpr = expr.split(k, 1)
+        if argMode not in argModeD.values():
+            raise ExprException("bad arg mode for expr %s, mode: %s" % (expr, argMode))
+
+        reg, xpr = self._splitXpr(xpr)
+        if argMode == 'mReg':
             if reg.isdigit():
                 argi = int(reg)
             else:
-                argi = regIndex(reg)
-            if types == '':
-                argt = self._func['args'][argi]
-            else:
-                argt = types
-            regArch = transReg(argi)
+                argi = regIndex(reg, self._arch)
+            regArch = transReg(argi, self._arch)
         else:
-            types, xpr = expr.split('$retval')
-            if types == '':
+            argi = 0
+            regArch = reg
+
+        if types == '':
+            if argMode != "mReg":
+                argt = ''
+            elif inFlag:  # check mReg condition.
+                argt = 'u64'
+            elif self._res['type'] == 'p':
+                argt = self._func['args'][argi]
+            elif self._res['type'] == 'r':
                 argt = self._func['ret']
             else:
-                argt = types
-            regArch = '$retval'
+                raise ExprException("can not get arg type for %s" % expr)
+        else:
+            argt = types
         return showType, regArch, argt, xpr
 
     def __filtType(self, s):
@@ -333,10 +359,9 @@ class CargsGuide(CconBase):
         return sType, v
 
     def _cellCheck(self, cells, reg, getCell=False):
-        if reg == "$retval":
-            self._strFxpr = reg
-        else:
-            self._strFxpr = "%" + reg
+        self._strFxpr = self._argSym + reg
+        if cells[0] == '':
+            return {"type": ''}
             
         i = 0; end = len(cells); lastCell = None
         sMem = ""; origType = sType = "unkown"; tStruct = None; origMode = '->'
@@ -411,6 +436,9 @@ class CargsGuide(CconBase):
         if flag[0] in "SUX":
             self.__format = str.lower(flag[0])
 
+    def __checkSurfComm(self, e):
+        return self._reSurfComm.match(e)
+
     def __checkBegExpr(self, e):
         if self._res['type'] == 'p':
             res = self._reSurfProbe.match(e)
@@ -420,7 +448,12 @@ class CargsGuide(CconBase):
             raise ExprException("error in expr %s." % e)
         return res
 
-    def __checkExpr(self, e):
+    def _checkExpr(self, e, inFlag):
+        res = self.__checkSurfComm(e)
+        if res:
+            self._strFxpr = "$comm"
+            return {"type": "$comm"}
+
         self.__checkBegExpr(e)
         self.__checkFormat(e)
 

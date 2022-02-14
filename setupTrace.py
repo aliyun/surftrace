@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.4.5'
+VERSION = '0.4.7'
 
 from setuptools import setup, find_packages
 
