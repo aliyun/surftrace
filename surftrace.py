@@ -429,7 +429,10 @@ class ftrace(object):
         self._single = True
         self._start()
         pipe = self.baseDir + "/tracing/instances/surftrace/trace_pipe"
-        self.pipe = CasyncPipe(pipe, self.procLine)
+        if hasattr(self, "_cbOrig"):
+            self.pipe = CasyncPipe(pipe, self._cbOrig)
+        else:
+            self.pipe = CasyncPipe(pipe, self.procLine)
         saveCmd("cat %s" % pipe)
 
     def signalHandler(self, signalNumber, frame):
@@ -1049,7 +1052,8 @@ class surftrace(ftrace):
             self._argSym = ""
 
         self._cb = cb
-        self._cbOrig = cbOrig
+        if cbOrig is not None:
+            self._cbOrig = cbOrig
 
         if cbShow: self._cbShow = cbShow
         else: self._cbShow = self._showFxpr
@@ -1746,11 +1750,9 @@ class surftrace(ftrace):
 
         del self._parser
         if not self._show:
-            if self._cbOrig:
-                self.pipe.newCb(self._cbOrig)
             if self._cb is None:
                 self._cb = self._cbLine
-            super(surftrace, self).start()
+        super(surftrace, self).start()
 
     def stop(self):
         self._clearProbes()
