@@ -14,6 +14,7 @@ __author__ = 'liaozhaoyan'
 
 from collections import deque
 from surftrace import CexecCmd
+import shlex
 
 HIST2_MAX = 65
 HIST10_MAX = 20
@@ -131,13 +132,33 @@ class CsurfList(deque):
                 lShow[0] += 1
         self._showHist10(lShow)
 
+
+def transProbeLine(line):
+    '''jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'''
+    tasks, rest = line.split(" [", 1)
+    task, pid = tasks.strip().rsplit('-', 1)
+    res = {"task": task, "pid": int(pid)}
+    cpu, rest = rest.split("] ", 1)
+    res["cpu"] = int(cpu)
+    flag, rest = rest.split(" ", 1)
+    res["flag"] = flag
+    ts, name, rest = rest.split(": ")
+    res["time"] = ts
+    res["name"] = name.strip()
+    _, rest = rest.split("(", 1)
+    funcs, args = rest.split(")", 1)
+    func, sizes = funcs.split("+", 1)
+    pos, size = sizes.split("/", 1)
+    res['func'] = func
+    res['pos'] = int(pos, 16)
+    res['size'] = int(size, 16)
+    argd = {}
+    for a in shlex.split(args.strip()):
+        k, v = a.split('=', 1)
+        argd[k] = v
+    res['args'] = argd
+    return res
+
 import random
 if __name__ == "__main__":
-    l = CsurfList(2048)
-    for i in range(2048):
-        l.append(random.randint(0, 1024 * 1024))
-    print("hist2:")
-    l.hist2()
-    print("hist10:")
-    l.hist10()
-    pass
+    print(transProbeLine('jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'))

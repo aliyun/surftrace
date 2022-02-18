@@ -86,7 +86,7 @@ class CargsGuide(CconBase):
                 return xpr[:i], xpr[i:]
         return xpr, ''
 
-    def __getExprArgi(self, e, inFlag):
+    def __getExprArgi(self, e, inFlag=False):
         # expression: a=@(struct iphdr *)l4%1->saddr uesrs=!(struct task_struct *)%0->mm->mm_users
         # e is already checked at self.__checkBegExpr
         argModeD = {'%': "mReg", '@': "mAddr", "$": "mVar"}
@@ -117,6 +117,9 @@ class CargsGuide(CconBase):
         else:
             argi = 0
             regArch = reg
+
+        if not inFlag and argi > len(self._func['args']):
+            raise ExprException("argi num %d, which is larger than func args number %d." % (argi, len(self._func['args'])))
 
         if types == '':
             if argMode != "mReg":
@@ -289,11 +292,15 @@ class CargsGuide(CconBase):
             name = cell['name']
             indexMax = 0
             if '[' in name:
-                indexMax = int(self._reSquareBrackets.findall(name)[0])
+                try:
+                    indexMax = int(self._reSquareBrackets.findall(name)[0])
+                except IndexError:
+                    indexMax = -1
+                    # raise ExprException("name index is none: %s" % name)
                 name = name.split("[")[0]
             if name == member:
                 if add > 0:
-                    if add >= indexMax:
+                    if 0 < indexMax <= add:
                         raise ExprException("member %s max index is %d, input %d, overflow" % (name, indexMax, add))
                     add *= int(cell['size'] / indexMax)
                 return cell['offset'] + add
@@ -448,7 +455,7 @@ class CargsGuide(CconBase):
             raise ExprException("error in expr %s." % e)
         return res
 
-    def _checkExpr(self, e, inFlag):
+    def _checkExpr(self, e, inFlag=False):
         res = self.__checkSurfComm(e)
         if res:
             self._strFxpr = "$comm"
@@ -465,9 +472,9 @@ class CargsGuide(CconBase):
             raise ExprException("last member is nested struct type, which is not completed.")
         return res
 
-    def _checkExpr(self, expr):
+    def __checkExpr(self, expr):
         try:
-            self.__checkExpr(expr)
+            self._checkExpr(expr)
         except ExprException as e:
             self._footer.set_text("expression %s error, %s." % (expr, e.message))
             return False
@@ -478,7 +485,7 @@ class CargsGuide(CconBase):
         fxprs = ""
         vars = []
         for expr in es:
-            if not self._checkExpr(expr):
+            if not self.__checkExpr(expr):
                 return False, ""
             var, _ = expr.split("=", 1)
             if var in vars:
@@ -494,7 +501,7 @@ class CargsGuide(CconBase):
         if expr == '':
             self._footer.set_text("do not input space")
             return
-        self._checkExpr(expr)
+        self.__checkExpr(expr)
 
     def _cb_check_pt(self, t):
         cell = self._checkPoint(t)

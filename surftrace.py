@@ -41,8 +41,8 @@ def saveCmd(s):
     if save2File:
         cmdStrings += s + "\n"
 
-def getValueFromStr(s):
-    if s.startswith('0x') or s.startswith('0X'):
+def getValueFromStr(s, isHex=False):
+    if isHex or s.startswith('0x') or s.startswith('0X'):
         return int(s, 16)
     else:
         return int(s)
@@ -53,15 +53,15 @@ def headTrans(head, value):
         v = getValueFromStr(value)
         value = socket.inet_ntoa(struct.pack('>I', socket.htonl(v)))
     elif type == "B16":
-        v = getValueFromStr(value)
+        v = getValueFromStr(value, True)
         v = struct.unpack('H', struct.pack('>H', v))
         value = "%x" % v
     elif type == "B32":
-        v = getValueFromStr(value)
+        v = getValueFromStr(value, True)
         v = struct.unpack('I', struct.pack('>I', v))
         value = "%x" % v
     elif type == "B64":
-        v = getValueFromStr(value)
+        v = getValueFromStr(value, True)
         v = struct.unpack('Q', struct.pack('>Q', v))
         value = "%x" % v
     elif type == "b16":
@@ -1055,16 +1055,7 @@ class surftrace(ftrace):
         else: self._cbShow = self._showFxpr
 
     def _getArchitecture(self):
-        lines = self._c.cmd('lscpu').split('\n')
-        for line in lines:
-            if line.startswith("Architecture"):
-                arch = line.split(":", 1)[1].strip()
-                if arch.startswith("arm"):
-                    return "arm"
-                if arch.startswith('x86'):
-                    return "x86"
-                return arch
-        return "Unkown"
+        return self._c.cmd('uname -m').strip()
 
     def _clearProbes(self):
         if self._show:
@@ -1273,7 +1264,7 @@ class surftrace(ftrace):
             raise DbException('db get %s return %s' % (func, res['log']))
         return res
 
-    def __getExprArgi(self, e, inFlag):
+    def __getExprArgi(self, e, inFlag=False):
         # expression: a=@(struct iphdr *)l4%1->saddr uesrs=!(struct task_struct *)%0->mm->mm_users
         # e is already checked at self.__checkBegExpr
         argModeD = {'%': "mReg", '@': "mAddr", "$": "mVar"}
@@ -1304,6 +1295,9 @@ class surftrace(ftrace):
         else:
             argi = 0
             regArch = reg
+
+        if not inFlag and argi > len(self._func['args']):
+            raise ExprException("argi num %d, which is larger than func args number %d." % (argi, len(self._func['args'])))
 
         if types == '':
             if argMode != "mReg":
@@ -1806,7 +1800,7 @@ def main():
 
     arch = ""
     if args.arch:
-        if arch not in ('x86', 'x86_64', 'aarch64'):
+        if args.arch not in ('x86', 'x86_64', 'aarch64'):
             raise InvalidArgsException('not support architecture %s' % args.arch)
         arch = args.arch
     localParser = setupParser(args.mode, args.db, args.rip, args.gdb, args.vmlinux, arch)

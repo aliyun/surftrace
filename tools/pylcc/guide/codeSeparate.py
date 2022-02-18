@@ -23,7 +23,7 @@ class codeSeparate(ClbcBase):
     def _cb(self, cpu, data, size):
         stream = ct.string_at(data, size)
         e = self.maps['e_out'].event(stream)
-        print("current pid:%d, comm:%s. do_fork parent pid: %d, current: %s" % (
+        print("current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
 

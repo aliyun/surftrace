@@ -19,8 +19,8 @@ from pylcc.lbcBase import ClbcBase
 bpfPog = r"""
 #include "lbc.h"
 
-SEC("kprobe/_do_fork")
-int j_do_fork(struct pt_regs *ctx)
+SEC("kprobe/wake_up_new_task")
+int j_wake_up_new_task(struct pt_regs *ctx)
 {
     struct task_struct* parent = (struct task_struct *)PT_REGS_PARM1(ctx);
     
