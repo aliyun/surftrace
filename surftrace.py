@@ -334,6 +334,8 @@ class ftrace(object):
         self._stopHook = []
         self._single = True
         self.__ps = []
+        # skip 1234.7890: Unknown type 12342
+        self._reSkip = re.compile(r"[\d]+\.[\d]+: +Unknown type +[\d]+")
 
     def __getMountDirStr(self):
         cmd = "mount"
@@ -1055,8 +1057,11 @@ class surftrace(ftrace):
         if cbOrig is not None:
             self._cbOrig = cbOrig
 
-        if cbShow: self._cbShow = cbShow
-        else: self._cbShow = self._showFxpr
+        if cbShow:
+            self._cbShow = cbShow
+        else:
+            self._cbShow = self._showFxpr
+        self._fullWarning = True
 
     def _getArchitecture(self):
         return self._c.cmd('uname -m').strip()
@@ -1668,6 +1673,13 @@ class surftrace(ftrace):
         print("%s" % line)
 
     def procLine(self, line):
+        res = self._reSkip.search(line)
+        if res is not "None":
+            if self._fullWarning:
+                print("warning: The pipe may already be congested.")
+                self._fullWarning = False
+            return
+
         ss = line.split(' ')
         o = ' '
         for s in ss:
