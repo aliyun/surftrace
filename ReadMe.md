@@ -844,7 +844,12 @@ enum {
 # 8、生成surftrace db 方法
 
 ## 8.1、准备工作
+
+&emsp;以解析anolis发行版，rpm包名：kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm， 包URL： https://mirrors.openanolis.cn/anolis/8.4/Plus/x86_64/debug/Packages/kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm为例。需要准备好一台x86_64实例，确保该实例可以访问上面的url。
+
 ### 8.1.1、环境上已经安装了docker，
+
+&emsp; 下载容器镜像
 
 ```bash
 docker pull liaozhaoyan/dbhive
@@ -883,3 +888,24 @@ mkdir -p btf/$RELEASE  db/$RELEASE  funcs/$RELEASE  head/$RELEASE  pack/$RELEASE
 &emsp;4.三级目录是发行版的名字，已经在步骤3中创建好了
 
 ### 8.1.3、拉起容器
+
+```bash
+docker run --net=host --privileged=true -v /root/1ext/vmhive:/home/vmhive/ --name dbhived -itd liaozhaoyan/dbhive /usr/sbin/init
+```
+
+### 8.1.4、进入容器里面执行生成db文件动作：
+
+```bash
+docker exec -it dbhived bash
+cd /home/dbhive/
+python3 getVmlinux.py
+proc kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm, x86_64
+4728267 blocks
+strip: /home/vmhive/x86_64/btf/anolis/stlpkyQL: warning: allocated section `.BTF' not in segment
+gen /home/vmhive/x86_64/db/anolis/info-debuginfo-4.19.91-23.4.an8.x86_64.db
+No symbol "__int128" in current context.
+failed to parse type __int128
+This context has class, struct or enum irte, not a union.
+……
+```
+&emsp;此时开始解析所有的内核符号，解析完毕以后，会在host侧的vmhive/x86_64/db/anolis 目录下生成用于surftrace使用的db文件。
