@@ -841,3 +841,45 @@ enum {
 #endif //LBC_LBC_H
 ```
 
+# 8、生成surftrace db 方法
+
+## 8.1、准备工作
+### 8.1.1、环境上已经安装了docker，
+
+```bash
+docker pull liaozhaoyan/dbhive
+```
+### 8.1.2、在host机器上准备好存放目录，目录结构如下：
+
+```bash
+# tree
+tree
+.
+└── x86_64
+    ├── btf
+    │   └── anolis
+    ├── db
+    │   └── anolis
+    ├── funcs
+    │   └── anolis
+    ├── head
+    │   └── anolis
+    ├── pack
+    │   └── anolis
+    └── vmlinux
+        └── anolis
+```
+&emsp;1.顶级目录可以定义，本例定义为dbhive；
+
+&emsp;2.一级目录为arch名，当前容器仅支持x86_64和aarch64
+
+&emsp;3.二级目录为各个功能组目录，可以执行以下命令批量创建：
+
+```bash
+export RELEASE=anolis
+mkdir -p btf/$RELEASE  db/$RELEASE  funcs/$RELEASE  head/$RELEASE  pack/$RELEASE  vmlinux/$RELEASE
+```
+
+&emsp;4.三级目录是发行版的名字，已经在步骤3中创建好了
+
+### 8.1.3、拉起容器
