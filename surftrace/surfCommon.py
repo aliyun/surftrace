@@ -12,9 +12,10 @@
 """
 __author__ = 'liaozhaoyan'
 
+import shlex
+import re
 from collections import deque
 from surftrace import CexecCmd
-import shlex
 
 HIST2_MAX = 65
 HIST10_MAX = 20
@@ -133,18 +134,41 @@ class CsurfList(deque):
         self._showHist10(lShow)
 
 
-def transProbeLine(line):
-    '''jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'''
-    tasks, rest = line.split(" [", 1)
-    task, pid = tasks.strip().rsplit('-', 1)
-    res = {"task": task, "pid": int(pid)}
-    cpu, rest = rest.split("] ", 1)
-    res["cpu"] = int(cpu)
-    flag, rest = rest.split(" ", 1)
-    res["flag"] = flag
-    ts, name, rest = rest.split(": ")
-    res["time"] = ts
+def _splitArgs(line, sym):
+    argd = {}
+    for a in shlex.split(line.strip()):
+        if sym in a:
+            k, v = a.split(sym, 1)
+            argd[k] = v
+    return argd
+
+def _transSysExit(line, res):
+    # 447379.740962: sys_futex -> 0x0
+    name, val = line.split("->")
     res["name"] = name.strip()
+    res["return"] = int(val, 16)
+
+def _transSysEntry(line, res):
+    # futex(uaddr: 7f1a90bc9910, op: 0, val: 19989, utime: 0, uaddr2: 0, val3: 7f1a903c8640)
+    name, rest = line.split('(', 1)
+    res['name'] = name
+    args = rest.strip()[:-1]
+    argd = {}
+    for a in args.split(','):
+        k, v = a.split(':')
+        argd[k] = v.strip()
+    res['argd'] = argd
+
+def _transEvents(line, res):
+    name, rest = line.split(':', 1)
+    res['name'] = name
+    res['args'] = _splitArgs(rest, '=')
+
+
+def _transProbe(line, res):
+    #f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8
+    name, rest = line.split(":", 1)
+    res["name"] = name
     _, rest = rest.split("(", 1)
     funcs, args = rest.split(")", 1)
     func, sizes = funcs.split("+", 1)
@@ -152,13 +176,47 @@ def transProbeLine(line):
     res['func'] = func
     res['pos'] = int(pos, 16)
     res['size'] = int(size, 16)
-    argd = {}
-    for a in shlex.split(args.strip()):
-        k, v = a.split('=', 1)
-        argd[k] = v
-    res['args'] = argd
+
+    res['args'] = _splitArgs(args, '=')
+
+def transProbeLine(line):
+    '''jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'''
+    '''kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait: comm=bash pid=103869 delay=1843 [ns]'''
+    '''sem-104831  [001] .... 448036.804764: sys_futex(uaddr: 7f1a90bc9910, op: 0, val: 19989, utime: 0, uaddr2: 0, val3: 7f1a903c8640)'''
+    '''sem-104831  [001] .... 448036.804808: sys_futex -> 0x0'''
+    tasks, rest = line.split(" [", 1)
+    task, pid = tasks.strip().rsplit('-', 1)
+    res = {"task": task, "pid": int(pid)}
+    cpu, rest = rest.split("] ", 1)
+    res["cpu"] = int(cpu)
+    flag, rest = rest.split(" ", 1)
+    res["flag"] = flag
+    ts, rest = rest.split(": ", 1)
+    res["time"] = ts
+
+    if re.match(r"\w+: \(\w+\+", rest):  #  f0: (blk_account_io_start+  >> kprobe
+        _transProbe(rest, res)
+    elif re.match(r"\w+\(", rest):  # syscall
+        _transSysEntry(rest, res)
+    elif re.match(r"\w+ -> \w+", rest): #syscall exit
+        _transSysExit(rest, res)
+    elif re.match(r"\w+:", rest):    # events
+        _transEvents(rest, res)
+    elif re.match(r"\w{%d}" % len(rest), rest):
+        res['name'] = rest
+    else:
+        raise ValueError("surftrace cannot fit %s now." % line)
     return res
 
-import random
 if __name__ == "__main__":
-    print(transProbeLine('jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'))
+    print(transProbeLine(
+        'jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'))
+    print(transProbeLine(
+        'kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait: comm=bash pid=103869 delay=1843 [ns]'))
+    print(transProbeLine(
+        'kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait'))
+    print(transProbeLine(
+        'sem-104831  [001] .... 448036.804764: sys_futex(uaddr: 7f1a90bc9910, op: 0, val: 19989, utime: 0, uaddr2: 0, val3: 7f1a903c8640)'))
+    print(transProbeLine('sem-104831  [001] .... 448036.804808: sys_futex -> 0x0'))
+    print(transProbeLine(
+        'kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait'))

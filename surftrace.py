@@ -35,11 +35,55 @@ LBCBuffSize = 80 * 1024 * 1024
 save2File = False
 cmdStrings = "trap ':' INT QUIT TERM PIPE HUP\n"
 
+
+class RootRequiredException(Exception):
+    def __init__(self, message):
+        super(RootRequiredException, self).__init__(message)
+        self.message = message
+
+
+class FileNotExistException(Exception):
+    def __init__(self, message):
+        super(FileNotExistException, self).__init__(message)
+        self.message = message
+
+
+class FileNotEmptyException(Exception):
+    def __init__(self, message):
+        super(FileNotEmptyException, self).__init__(message)
+        self.message = message
+
+
+class InvalidArgsException(Exception):
+    def __init__(self, message):
+        super(InvalidArgsException, self).__init__(message)
+        self.message = message
+
+
+class DbException(Exception):
+    def __init__(self, message):
+        super(DbException, self).__init__(message)
+        self.message = message
+
+
+class ExprException(Exception):
+    def __init__(self, message):
+        super(ExprException, self).__init__(message)
+        self.message = message
+
+
+class ExecException(Exception):
+    def __init__(self, message):
+        super(ExecException, self).__init__(message)
+        self.message = message
+
+
 def saveCmd(s):
     global save2File
     global cmdStrings
     if save2File:
         cmdStrings += s + "\n"
+
 
 def getValueFromStr(s, isHex=False):
     if isHex or s.startswith('0x') or s.startswith('0X'):
@@ -47,90 +91,51 @@ def getValueFromStr(s, isHex=False):
     else:
         return int(s)
 
-def headTrans(head, value):
-    type = head.split('_', 1)[0]
-    if type == "ip":
-        v = getValueFromStr(value)
-        value = socket.inet_ntoa(struct.pack('>I', socket.htonl(v)))
-    elif type == "B16":
-        v = getValueFromStr(value, True)
-        v = struct.unpack('H', struct.pack('>H', v))
-        value = "%x" % v
-    elif type == "B32":
-        v = getValueFromStr(value, True)
-        v = struct.unpack('I', struct.pack('>I', v))
-        value = "%x" % v
-    elif type == "B64":
-        v = getValueFromStr(value, True)
-        v = struct.unpack('Q', struct.pack('>Q', v))
-        value = "%x" % v
-    elif type == "b16":
-        v = getValueFromStr(value)
-        v = struct.unpack('H', struct.pack('>H', v))
-        value = "%d" % v
-    elif type == "b32":
-        v = getValueFromStr(value)
-        v = struct.unpack('I', struct.pack('>I', v))
-        value = "%d" % v
-    elif type == "b64":
-        v = getValueFromStr(value)
-        v = struct.unpack('Q', struct.pack('>Q', v))
-        value = "%d" % v
-    return "%s=%s" % (head, value)
 
-def invHeadTrans(head, value):  #为 filter 翻转
-    type = head.split('_', 1)[0]
-    if type == "ip":
-        v = struct.unpack('I',socket.inet_aton(value))[0]
-        value = "0x%x" % v
-    elif type == "B16" or type == "b16":
-        v = getValueFromStr(value)
-        v = struct.unpack('H', struct.pack('>H', v))
-        value = "%x" % v
-    elif type == "B32" or type == 'b32':
-        v = getValueFromStr(value)
-        v = struct.unpack('I', struct.pack('>I', v))
-        value = "%x" % v
-    elif type == "B64" or type == 'b64':
-        v = getValueFromStr(value)
-        v = struct.unpack('Q', struct.pack('>Q', v))
-        value = "%x" % v
-    return head, value
+def _headSplit(head):
+    sizeD = {"16": "H", "32": "I", "64": "Q"}
+    t, size = head[0], head[1:]
+    if size not in sizeD.keys():
+        raise ExprException("head type %s is not legal type." % size)
+    return t, sizeD[size]
 
-class RootRequiredException(Exception):
-    def __init__(self, message):
-        super(RootRequiredException, self).__init__(message)
-        self.message = message
 
-class FileNotExistException(Exception):
-    def __init__(self, message):
-        super(FileNotExistException, self).__init__(message)
-        self.message = message
+def headTrans(head, var):
+    h = head.split('_', 1)[0]
+    if h == "ip":
+        varInt = getValueFromStr(var)
+        varStr = socket.inet_ntoa(struct.pack('>I', socket.htonl(varInt)))
+    else:
+        t, pt = _headSplit(h)
+        varInt = getValueFromStr(var, t == "B")
+        varInt = struct.unpack(pt, struct.pack(">" + pt, varInt))
+        if t == "B":
+            varStr = "%x" % varInt
+        else:
+            varStr = "%d" % varInt
+    return "%s=%s" % (head, varStr)
 
-class FileNotEmptyException(Exception):
-    def __init__(self, message):
-        super(FileNotEmptyException, self).__init__(message)
-        self.message = message
 
-class InvalidArgsException(Exception):
-    def __init__(self, message):
-        super(InvalidArgsException, self).__init__(message)
-        self.message = message
+def _invHead(t, value):
+    if t[0] == 'B':
+        return "%x" % value
+    return "%d" % value
 
-class DbException(Exception):
-    def __init__(self, message):
-        super(DbException, self).__init__(message)
-        self.message = message
 
-class ExprException(Exception):
-    def __init__(self, message):
-        super(ExprException, self).__init__(message)
-        self.message = message
-
-class ExecException(Exception):
-    def __init__(self, message):
-        super(ExecException, self).__init__(message)
-        self.message = message
+def invHeadTrans(head, var):  #为 filter 翻转
+    h = head.split('_', 1)[0]
+    if h == "ip":
+        varInt = struct.unpack('I', socket.inet_aton(var))[0]
+        varStr = "0x%x" % varInt
+    else:
+        t, pt = _headSplit(h)
+        varInt = getValueFromStr(var, t == "B")
+        varInt = struct.unpack(pt, struct.pack('>' + pt, varInt))
+        if t == "B":
+            varStr = "%x" % varInt
+        else:
+            varStr = "%d" % varInt
+    return head, varStr
 
 
 # copy from surf expression.py
@@ -143,6 +148,7 @@ archRegd = {'x86_64': ('di', 'si', 'dx', 'cx', 'r8', 'r9', 'ax', 'bx',
                         'x20', 'x21', 'x22', 'x23', 'x24', 'x25', 'x26', 'x27', 'x28', 'x29',
                         'x30', 'x31'),}
 
+
 def maxNameString(cells, t):
     rs = cells[0][t]
     ret = ""
@@ -154,6 +160,7 @@ def maxNameString(cells, t):
         ret += r
     return ret
 
+
 def isStruct(text):
     strips = ("const ", "volatile ")
     for s in strips:
@@ -162,6 +169,7 @@ def isStruct(text):
     if text.startswith("struct ") or text.startswith("union "):
         return text
     return None
+
 
 def splitExpr(text):
     es = []
@@ -181,6 +189,7 @@ def splitExpr(text):
         e += c
     if e != "": es.append(e)
     return es
+
 
 def spiltInputLine(line):
     res = {}
@@ -203,6 +212,7 @@ def spiltInputLine(line):
         res['filter'] = ""; res['args'] = ""
     return res
 
+
 def unpackRes(res):
     s = "%s %s" % (res['type'], res['symbol'])
     if res['filter'] == "":
@@ -216,8 +226,10 @@ def unpackRes(res):
         else:
             return s + " %s f:%s" % (res['args'], res['filter'])
 
+
 def stripPoint(sStruct):
     return sStruct.strip("*").strip()
+
 
 def regIndex(reg, arch='x86'):
     regs = archRegd[arch]
@@ -226,11 +238,13 @@ def regIndex(reg, arch='x86'):
     except ValueError:
         raise ExprException('%s is not a %s register.' % (reg, arch))
 
+
 def transReg(i, arch='x86'):
     try:
         return archRegd[arch][i]
     except IndexError:
         raise ExprException('reg index %d overflow.' % i)
+
 
 class CasyncPipe(Thread):
     def __init__(self, f, func):
@@ -255,6 +269,7 @@ class CasyncPipe(Thread):
         self.__loop = False
         self.join(1)
 
+
 class CexecCmd(object):
     def __init__(self):
         pass
@@ -269,6 +284,7 @@ class CexecCmd(object):
     def system(self, cmds):
         cmds = cmds.replace('\0', '').strip()
         return os.popen(cmds).read(8192)
+
 
 class CasyncCmdQue(object):
     def __init__(self, cmd):
@@ -318,6 +334,7 @@ class CasyncCmdQue(object):
     def terminate(self):
         self.__p.terminate()
         return self.__p.wait()
+
 
 class ftrace(object):
     def __init__(self, show=False, echo=True):
@@ -453,6 +470,7 @@ class ftrace(object):
     def loop(self):
         signal.pause()
 
+
 class ClbcClient(object):
     def __init__(self, server="pylcc.openanolis.cn", ver="", arch=""):
         super(ClbcClient, self).__init__()
@@ -516,8 +534,10 @@ class ClbcClient(object):
                  "ver": self._ver,
                  "cmd": "func",
                  "func": func}
-        if ret: dSend['ret'] = ret
-        if arg: dSend['arg'] = arg
+        if ret:
+            dSend['ret'] = ret
+        if arg:
+            dSend['arg'] = arg
         self._send_lbc(s, json.dumps(dSend))
         return self._recv_lbc(s)
 
@@ -540,6 +560,7 @@ class ClbcClient(object):
                  "type": t}
         self._send_lbc(s, json.dumps(dSend))
         return self._recv_lbc(s)
+
 
 class CdbParser(object):
     def __init__(self, dbPath=""):
@@ -690,6 +711,7 @@ class CdbParser(object):
         dSend = {"log": "ok."}
         dSend['res'] = self._getType(t)
         return dSend
+
 
 class CgdbParser(object):
     def __init__(self, vmlinuxPath="", gdb=None):
@@ -1021,12 +1043,14 @@ class CgdbParser(object):
         show = self._read()
         print(self._stripGdb(show))
 
+
 class surftrace(ftrace):
     def __init__(self, args, parser, show=False, echo=True, arch="", stack=False, cb=None, cbOrig=None, cbShow=None):
         super(surftrace, self).__init__(show=show, echo=echo)
         self._parser = parser
         self._probes = []
         self._events = []
+        self._options = []
         if not self._show:
             self._checkIsEmpty()
         self._arch = arch
@@ -1052,6 +1076,7 @@ class surftrace(ftrace):
             self.__format = 'u'
             self._func = None
             self._argSym = ""
+            self._kp_events = None
 
         self._cb = cb
         if cbOrig is not None:
@@ -1076,7 +1101,13 @@ class surftrace(ftrace):
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
         self._probes = []
         for ePath in self._events:
-            self._echoPath(ePath, "0")
+            fFilter = os.path.join(ePath, "filter")
+            self._echoPath(fFilter, "")
+            fPath = os.path.join(ePath, "enable")
+            self._echoPath(fPath, "0")
+        for op in self._options:
+            path, v = op[0], op[1]
+            self._echoPath(path, v)
         self._events = []
         
     def __transFilter(self, filter, i, beg):
@@ -1122,7 +1153,8 @@ class surftrace(ftrace):
             try:
                 filter = self.__checkFilter(filter)
             except Exception as e:
-                if self._echo: print(e.message)
+                if self._echo:
+                    print(e)
                 raise InvalidArgsException('bad filter：%s' % filter)
             if self._show:
                 self.__showExpression('e', e, filter)
@@ -1136,7 +1168,7 @@ class surftrace(ftrace):
         else:
             ePath = os.path.join(eDir, 'enable')
             self._echoPath(ePath, "1")
-            self._events.append(ePath)
+            self._events.append(eDir)
 
     def _memINStruct(self, mem, tStruct):
         if tStruct is None:
@@ -1229,11 +1261,16 @@ class surftrace(ftrace):
             name = cell['name']
             indexMax = 0
             if '[' in name:
-                indexMax = int(self._reSquareBrackets.findall(name)[0])
+                try:
+                    indexMax = int(self._reSquareBrackets.findall(name)[0])
+                except IndexError:
+                    indexMax = -1
+                except ValueError:
+                    raise ExprException("struct %s member %s array index error." % (structName, name))
                 name = name.split("[")[0]
             if name == member:
                 if add > 0:
-                    if add >= indexMax:
+                    if 0 < indexMax <= add:
                         raise ExprException("member %s max index is %d, input %d, overflow" % (name, indexMax, add))
                     add *= int(cell['size'] / indexMax)
                 return cell['offset'] + add
@@ -1286,11 +1323,15 @@ class surftrace(ftrace):
             showType = expr[0]
 
         argMode = "None"
+        if expr[0] == '@':  # skb mode also use @, show skip
+            sMode = expr[1:]
+        else:
+            sMode = expr
         for k in argModeD.keys():
-            if k in expr:
+            if k in sMode:
                 self._argSym = k
                 argMode = argModeD[k]
-                types, xpr = expr.split(k, 1)
+                types, xpr = expr.rsplit(k, 1)
         if argMode not in argModeD.values():
             raise ExprException("bad arg mode for expr %s, mode: %s" % (expr, argMode))
 
@@ -1453,7 +1494,7 @@ class surftrace(ftrace):
             structName = self.__filtType(structName)
             if first == '@':
                 try:
-                    layer = int(self._reLayer.match(orig)[0][1])
+                    layer = int(self._reLayer.search(orig)[0][1])
                 except (TypeError, IndexError):
                     layer = 3
                 if mode != '->':
@@ -1565,6 +1606,17 @@ class surftrace(ftrace):
         else:
             return func
 
+    def _clearSymbol(self, name):
+        if self._kp_events is None:
+            self._kp_events = self._c.cmd("cat %s/tracing/kprobe_events" % self.baseDir).split('\n')
+        findStr = "p:kprobes/%s " % name
+        for ev in self._kp_events:
+            if ev.startswith(findStr):
+                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+                self._echoPath(fPath, "0")
+                cmd = '-:%s' % name
+                self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
+
     def __initEvents(self, i, arg):
         arg = arg.strip('\n')
         if len(arg) == 0:
@@ -1604,13 +1656,15 @@ class surftrace(ftrace):
             vars.append(var)
             cmd += " %s=" % var + self._strFxpr
         if not self._show:
+            self._clearSymbol(name)
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + cmd + "'")
             self._probes.append(name)
         if res['filter'] != "":
             try:
                 filter = self.__checkFilter(res['filter'])
             except Exception as e:
-                if self._echo: print(e.message)
+                if self._echo:
+                    print(e)
                 raise InvalidArgsException('bad filter：%s' % res['filter'])
             if self._show:
                 self.__showExpression(res['type'], cmd, filter)
@@ -1631,7 +1685,7 @@ class surftrace(ftrace):
         if not os.path.exists(fPath):
             fPath = self.baseDir + "/tracing/options/stacktrace"
         if self._stack:
-            self._events.append(fPath)
+            self._options.append([fPath, "0"])
             self._echoPath(fPath, "1")
         else:
             self._echoPath(fPath, "0")
@@ -1674,12 +1728,11 @@ class surftrace(ftrace):
 
     def procLine(self, line):
         res = self._reSkip.search(line)
-        if res is not "None":
+        if res is not None:
             if self._fullWarning:
                 print("warning: The pipe may already be congested.")
                 self._fullWarning = False
             return
-
         ss = line.split(' ')
         o = ' '
         for s in ss:
@@ -1840,6 +1893,7 @@ def main():
     if args.output:
         with open(args.output, 'w') as f:
             f.write(cmdStrings)
+
 
 if __name__ == "__main__":
     main()
