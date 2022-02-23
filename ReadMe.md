@@ -1,8 +1,9 @@
+![mascot.png](ReadMe.assets/mascot.png)
 # 1、简介
 
-​&emsp;surftrace是在ftrace基础上封装的一系列工具集，用于trace内核信息，当前发行版主要包含 surftrace、surfGuide两大个工具，后期还将包含pylcc(python libbpf compile collections)。
+​&emsp;surftrace是在ftrace和libbpf基础上封装的一系列工具集，用于trace内核信息，当前发行版主要包含 surftrace、surfGuide、pylcc三大个工具
 
-![image-20220116004341741](ReadMe.assets/image-20220116004341741.png)
+![surftrace.png](ReadMe.assets/surftrace.png)
 
 ## 1.1、ftrace原理与不足
 
@@ -28,11 +29,12 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 ## 1.2、surftrace目标
 
-​&emsp;surftrace的主要目标是为了降低ftrace，达到快速高效获取内核信息目标。综合来说要达到以下效果：
+​&emsp;surftrace的主要目标是为了降低内核trace难度，达到快速高效获取内核信息目标。综合来说要达到以下效果：
 
 - 1. 一键trace内核符号，并获取指定内核数据；
 - 2. 除了C和linux 操作系统内核，用户无需新增学习掌握其它知识点（需要获取数据进行二次处理除外）；
 - 3. 覆盖大部分主流发行版内核；
+-  4. 类似bcc开发模式，达到libbpf最佳资源消耗；
 
 # 2、surftrace 命令使用
 
@@ -731,6 +733,36 @@ entry_SYSCALL_64_after_swapgs
 
 &emsp;它没有了 bpf_str 入参，此时lcc会尝试从当前目录上下，去找independ.bpf.c并提请编译加载。
 
+## 6.4 pylcc 与 bcc 对比性能优势
+
+&emsp;由于bcc 库内部集成了庞大的 LLVM/Clang 库，使其在使用过程中会遇到一些问题：
+
+- 1. 在每个工具启动时，都会占用较高的 CPU 和内存资源来编译 BPF 程序，在系统资源已经短缺的服务器上运行可能引起问题；
+- 2. 依赖于内核头文件包，必须将其安装在每个目标主机上。即便如此，如果需要内核中未 export 的内容，则需要手动将类型定义复制/粘贴到 BPF 代码中；
+
+&emsp;以tools/pylcc/pytool/filelife.py工具为例，与bcc/tools/filelife功能一致的前提下，性能差异对比：
+
+- 1. lcc 由于不在本地编译，无本地cpu冲高过程;而采用bcc 可以监控到明显的CPU冲高过程
+
+![bcc-compile.png](ReadMe.assets/bcc-compile.png)
+
+- 2. 运行阶段内存占用对比
+
+|  |  pylcc | bcc |
+| ----- | ---- | ---- |  
+|  rss | 10352 | 92288 |
+| vmpeak | 207444 | 369672 |
+| vmdata | 201284 | 363484 |
+
+
+&emsp;汇总对比如下表，同样的python应用，pylcc在cpu和mem等资源消耗均比bcc有较明显的优势
+
+|  |  pylcc | bcc |
+| ----- | ---- | ---- |  
+|  启动阶段<br>cpu占用 | 0% |  50%+ |
+| 运行阶段<br>rss占用 | 1 | 9 |
+ 
+
 # 7 附录、
 
 ## 7.1、lbc.h头文件已定义的信息
@@ -845,7 +877,7 @@ enum {
 
 ## 8.1、准备工作
 
-&emsp;以解析anolis发行版，rpm包名：kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm， 包URL： https://mirrors.openanolis.cn/anolis/8.4/Plus/x86_64/debug/Packages/kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm为例。需要准备好一台x86_64实例，确保该实例可以访问上面的url。
+&emsp;以解析anolis发行版，rpm包名：[kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm]( https://mirrors.openanolis.cn/anolis/8.4/Plus/x86_64/debug/Packages/kernel-debug-debuginfo-4.19.91-23.4.an8.x86_64.rpm)为例。需要准备好一台x86_64实例，确保该实例可以访问上面的url。
 
 ### 8.1.1、环境上已经安装了docker，
 

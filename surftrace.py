@@ -1494,8 +1494,9 @@ class surftrace(ftrace):
             structName = self.__filtType(structName)
             if first == '@':
                 try:
-                    layer = int(self._reLayer.search(orig)[0][1])
-                except (TypeError, IndexError):
+                    match = self._reLayer.search(orig).group(0)
+                    layer = int(match[1])
+                except AttributeError:
                     layer = 3
                 if mode != '->':
                     raise ExprException("net struct process should in -> mode.")
