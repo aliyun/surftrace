@@ -13,9 +13,15 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.4.10'
+VERSION = '0.4.11'
 
+import sys
 from setuptools import setup, find_packages
+
+if sys.version_info.major == 2:
+    reqLists = ["pip==20.3.4"]
+else:
+    reqLists = []
 
 setup(name='surftrace',
       version=VERSION,
@@ -41,7 +47,7 @@ setup(name='surftrace',
       packages=["surftrace"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=["pip>=20.3.4"],
+      install_requires=reqLists,
       entry_points={
           'console_scripts': [
               "surftrace = surftrace.surftrace:main",

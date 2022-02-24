@@ -100,9 +100,14 @@ def _headSplit(head):
     return t, sizeD[size]
 
 
+headFlags = ("ip", "b16", "b32", "b64", "B16", "B32", "B64")
+
+
 def headTrans(head, var):
     h = head.split('_', 1)[0]
-    if h == "ip":
+    if h not in headFlags:
+        varStr = var
+    elif h == "ip":
         varInt = getValueFromStr(var)
         varStr = socket.inet_ntoa(struct.pack('>I', socket.htonl(varInt)))
     else:
@@ -124,7 +129,9 @@ def _invHead(t, value):
 
 def invHeadTrans(head, var):  #为 filter 翻转
     h = head.split('_', 1)[0]
-    if h == "ip":
+    if h not in headFlags:
+        varStr = var
+    elif h == "ip":
         varInt = struct.unpack('I', socket.inet_aton(var))[0]
         varStr = "0x%x" % varInt
     else:
@@ -1102,7 +1109,7 @@ class surftrace(ftrace):
         self._probes = []
         for ePath in self._events:
             fFilter = os.path.join(ePath, "filter")
-            self._echoPath(fFilter, "")
+            self._echoPath(fFilter, '0')
             fPath = os.path.join(ePath, "enable")
             self._echoPath(fPath, "0")
         for op in self._options:
