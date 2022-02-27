@@ -53,13 +53,15 @@ class pubThread(Thread):
                 surf.start()
             except InvalidArgsException as e:
                 self._cbProc("parse version %s failed, report: %s" % (ver['ver'], e.message))
-                if self._jump: continue
+                if self._jump:
+                    continue
                 else:
                     self._run = False
                     return
             except DbException as e:
                 self._cbProc("parse version %s failed, report %s, may symbol not in this version." % (ver['ver'], e.message))
-                if self._jump: continue
+                if self._jump:
+                    continue
                 else:
                     self._run = False
                     return

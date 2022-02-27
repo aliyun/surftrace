@@ -73,8 +73,10 @@ class CsurfThread(Thread):
         super(CsurfThread, self).__init__()
         self.daemon = True
         self._surf = CsubSurf(cmds, log)
-        if cb: self._cb = cb
-        else: self._cb = self._defaultCb
+        if cb:
+            self._cb = cb
+        else:
+            self._cb = self._defaultCb
 
     def _defaultCb(self, line):
         print(line)

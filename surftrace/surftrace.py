@@ -1825,7 +1825,7 @@ class surftrace(ftrace):
         if not self._show:
             if self._cb is None:
                 self._cb = self._cbLine
-        super(surftrace, self).start()
+            super(surftrace, self).start()
 
     def stop(self):
         self._clearProbes()

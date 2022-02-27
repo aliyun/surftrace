@@ -160,7 +160,7 @@ def _transSysEntry(line, res):
     for a in args.split(','):
         k, v = a.split(':')
         argd[k] = v.strip()
-    res['argd'] = argd
+    res['args'] = argd
 
 
 def _transEvents(line, res):
@@ -184,11 +184,6 @@ def _transProbe(line, res):
     res['args'] = _splitArgs(args, '=')
 
 def transProbeLine(line):
-    '''jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'''
-    '''kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait: comm=bash pid=103869 delay=1843 [ns]'''
-    '''sem-104831  [001] .... 448036.804764: sys_futex(uaddr: 7f1a90bc9910, op: 0, val: 19989, utime: 0, uaddr2: 0, val3: 7f1a903c8640)'''
-    '''sem-104831  [001] .... 448036.804808: sys_futex -> 0x0'''
-    '''kworker/1:1H-115     [001] .... 651700.858481: block_rq_issue: 253,0 FF 0 () 0 + 0 [kworker/1:1H]'''
     tasks, rest = line.split(" [", 1)
     task, pid = tasks.strip().rsplit('-', 1)
     res = {"task": task, "pid": int(pid)}
@@ -214,14 +209,4 @@ def transProbeLine(line):
     return res
 
 if __name__ == "__main__":
-    print(transProbeLine(
-        'jbd2/vda1-8-313   [000] .... 234372.103866: f0: (blk_account_io_start+0x0/0x180) request=18446617219543870720 disk="vda" comm="jbd2/vda1-8"'))
-    print(transProbeLine(
-        'kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait: comm=bash pid=103869 delay=1843 [ns]'))
-    print(transProbeLine(
-        'kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait'))
-    print(transProbeLine(
-        'sem-104831  [001] .... 448036.804764: sys_futex(uaddr: 7f1a90bc9910, op: 0, val: 19989, utime: 0, uaddr2: 0, val3: 7f1a903c8640)'))
-    print(transProbeLine('sem-104831  [001] .... 448036.804808: sys_futex -> 0x0'))
-    print(transProbeLine('kworker/u4:0-103806  [000] d... 445702.516774: sched_stat_wait'))
-    print(transProbeLine('kworker/1:1H-115     [001] .... 651700.858481: block_rq_issue: 253,0 FF 0 () 0 + 0 [kworker/1:1sH]'))
+    pass
