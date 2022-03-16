@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cp surftrace.py surftrace/
+# cp surftrace.py surftrace/
 
 cp -r surftrace/ pub/
 cp setupTrace.py pub/setup.py

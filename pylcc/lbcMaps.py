@@ -23,6 +23,7 @@ except ImportError:
     from collections import MutableMapping
 from surftrace import InvalidArgsException
 
+
 class CtypeData(object):
     def __init__(self, dForm, data):
         super(CtypeData, self).__init__()

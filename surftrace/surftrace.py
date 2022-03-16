@@ -349,11 +349,9 @@ class ftrace(object):
         self._show = show
         self._echo = echo
         self._c = CexecCmd()
-        if self._show:
-            self.baseDir = ""
-        else:
+        if not self._show:
             self.__checkRoot()
-            self.baseDir = self.__getMountDir()
+        self.baseDir = self.__getMountDir()
         self.pipe = None
         self._stopHook = []
         self._single = True
@@ -378,9 +376,11 @@ class ftrace(object):
     def __getMountDir(self):
         s = self.__getMountDirStr()
         if s is None:
-            return None
-        else:
-            return s.split(' ')[2]
+            self._c.cmd("mount -t debugfs none /sys/kernel/debug/")
+            s = self.__getMountDirStr()
+            if s is None:
+                raise InvalidArgsException("mount debugfs failed.")
+        return s.split(' ')[2]
 
     def tracePre(self, buffSize=2048):
         pBuffersize = self.baseDir + "/tracing/instances/surftrace/buffer_size_kb"
@@ -1330,8 +1330,8 @@ class surftrace(ftrace):
             showType = expr[0]
 
         argMode = "None"
-        if expr[0] == '@':  # skb mode also use @, show skip
-            sMode = expr[1:]
+        if '(' in expr:
+            _, sMode = expr.rsplit('(', 1)
         else:
             sMode = expr
         for k in argModeD.keys():

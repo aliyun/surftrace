@@ -41,5 +41,28 @@ def test_kprobeArgMeber():
                     'p wake_up_new_task node=%0->se.run_node.rb_left'])
 
 
+def test_kprobeSkb():
+    surftraceSetup(['p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol ip_src=@(struct iphdr *)%0->saddr ip_dst=@(struct iphdr *)l3%0->daddr data=X@(struct iphdr *)l3%0->sdata[1] f:proto==1&&ip_src==127.0.0.1',
+                    'p ip_rcv_core len=@(struct iphdr*)%0->ihl',
+                    'p tcp_rcv_established aseq=@(struct tcphdr*)l4%0->ack_seq'
+                    ])
+
+def test_globalVars():
+    surftraceSetup([
+        'p brnf_sysctl_call_tables comm=$comm value=%2 value2=@jiffies',
+        'p brnf_sysctl_call_tables comm=$comm value=%2 value2=@(struct tcphdr*)l4@jiffies->ack_seq',
+    ]
+    )
+
+
+def test_Events():
+    expr = ['e syscalls/sys_enter_sync',
+            'e syscalls/sys_enter_syncfs',
+            'e syscalls/sys_enter_fsync',
+            'e syscalls/sys_enter_fdatasync',
+            'e syscalls/sys_enter_msync',
+            'e syscalls/sys_enter_sync_file_range']
+    surftraceSetup(expr)
+
 if __name__ == "__main__":
     pass

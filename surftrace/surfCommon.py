@@ -165,7 +165,7 @@ def _transSysEntry(line, res):
 
 def _transEvents(line, res):
     name, rest = line.split(':', 1)  # do not parse events format.
-    res['name'] = name
+    res['name'] = name.strip()
     res['args'] = rest.strip()
 
 

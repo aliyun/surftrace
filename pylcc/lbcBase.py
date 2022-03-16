@@ -29,16 +29,21 @@ from surftrace import CexecCmd, InvalidArgsException, RootRequiredException, Fil
 LBC_COMPILE_PORT = 7654
 buffSize = 80 * 1024 * 1024
 
+
 class ClbcBase(object):
-    def __init__(self, bpf, bpf_str="", server="pylcc.openanolis.cn", arch="", ver="", env="", workPath=None, logLevel=-1):
-        save = None
+    def __init__(self, bpf, bpf_str="",
+                 server="pylcc.openanolis.cn",
+                 arch="", ver="", env="",
+                 workPath=None, logLevel=-1):
+
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
         if "LBC_LOGLEVEL" in os.environ:
             logLevel = int(os.environ["LBC_LOGLEVEL"])
         if workPath:
-            save = os.getcwd()
-            os.chdir(workPath)
+            self._wPath = workPath
+        else:
+            self._wPath = os.getcwd()
         super(ClbcBase, self).__init__()
         self.__need_del = False
         self._server = server
@@ -57,8 +62,6 @@ class ClbcBase(object):
         self.__loadSo(bpf_so)
         self.maps = {}
         self._loadMaps()
-        if save:
-            os.chdir(save)
 
     def __del__(self):
         if self.__need_del:
@@ -92,10 +95,10 @@ class ClbcBase(object):
         return c.cmd('uname -m')
 
     def __getSo(self, bpf, s, ver, arch):
-        bpf_so = bpf + ".so"
+        bpf_so = self._wPath + '/' + bpf + ".so"
         need = False
         if s == "":
-            bpf_c = bpf + ".bpf.c"
+            bpf_c = self._wPath + '/' + bpf + ".bpf.c"
             if self.__checkCCompile(bpf_c, bpf_so, ver, arch):
                 with open(bpf_c, 'r') as f:
                     s = f.read()
@@ -120,7 +123,10 @@ class ClbcBase(object):
         else:  # both bpf.c and bo, check hash and version
             with open(bpf_c, "r") as f:
                 s = f.read()
-            cHash = hashlib.sha256(s.encode('utf-8')).hexdigest()
+            if sys.version_info.major >= 3:
+                cHash = hashlib.sha256(s.encode()).hexdigest()
+            else:
+                cHash = hashlib.sha256(s).hexdigest()
             if self.__checkHash(bpf_so, cHash):
                 return True
             return self.__checkVer(bpf_so, ver, arch)
@@ -130,19 +136,22 @@ class ClbcBase(object):
         if not oFlag:  # only string
             return True
         else:  # both bpf.c and bo, check hash and version
-            cHash = hashlib.sha256(s.encode('utf-8')).hexdigest()
+            if sys.version_info.major >= 3:
+                cHash = hashlib.sha256(s.encode()).hexdigest()
+            else:
+                cHash = hashlib.sha256(s).hexdigest()
             if self.__checkHash(bpf_so, cHash):
                 return True
             return self.__checkVer(bpf_so, ver, arch)
 
     def __parseVer(self, ver):
         major, minor, _ = ver.split(".", 2)
-        return major + "+" + minor
+        return major
 
     def __checkVer(self, bpf_so, ver, arch):
         """if should compile return ture, else return false"""
         try:
-            so = ct.CDLL("./" + bpf_so)
+            so = ct.CDLL(bpf_so)
         except:
             return True
         so.lbc_get_map_types.restype = ct.c_char_p
@@ -155,7 +164,7 @@ class ClbcBase(object):
     def __checkHash(self, bpf_so, cHash):
         """if should compile return ture, else return false"""
         try:
-            so = ct.CDLL("./" + bpf_so)
+            so = ct.CDLL(bpf_so)
         except:
             return True
         so.lbc_get_map_types.restype = ct.c_char_p
@@ -173,24 +182,24 @@ class ClbcBase(object):
 
     @staticmethod
     def _recv_lbc(s):
-        d = s.recv(buffSize).decode("utf-8")
+        d = s.recv(buffSize).decode()
         if d[:3] != "LBC":
             print("not lbc")
             return None
         size = d[3:11]
         try:
             size = int(size, 16) + 11
-        except:
+        except ValueError:
             print("bad size", size)
             return None
         while len(d) < size:
-            d += s.recv(buffSize).decode("utf-8")
+            d += s.recv(buffSize).decode()
         return json.loads(d[11:])
 
     @staticmethod
     def _send_lbc(s, send):
         send = "LBC%08x" % (len(send)) + send
-        s.send(send.encode('utf-8'))
+        s.send(send.encode())
 
     def _compileSo(self, s, bpf_so, ver, arch):
         # ver = coreDs[self.__parseVer(ver)]
@@ -213,7 +222,7 @@ class ClbcBase(object):
 
     def __loadSo(self, bpf_so):
         self.__need_del = True
-        self.__so = ct.CDLL("./" + bpf_so)
+        self.__so = ct.CDLL(bpf_so)
         self.__so.lbc_bpf_init.restype = ct.c_int
         self.__so.lbc_bpf_init.argtypes = [ct.c_int]
         r = self.__so.lbc_bpf_init(self._logLevel)
