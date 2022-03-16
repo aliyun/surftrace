@@ -43,7 +43,7 @@ def test_kprobeArgMeber():
 
 def test_kprobeSkb():
     surftraceSetup(['p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol ip_src=@(struct iphdr *)%0->saddr ip_dst=@(struct iphdr *)l3%0->daddr data=X@(struct iphdr *)l3%0->sdata[1] f:proto==1&&ip_src==127.0.0.1',
-                    'p ip_rcv_core len=@(struct iphdr*)%0->ihl',
+                    'p ip_local_deliver len=@(struct iphdr*)%0->ihl',
                     'p tcp_rcv_established aseq=@(struct tcphdr*)l4%0->ack_seq'
                     ])
 
@@ -56,12 +56,13 @@ def test_globalVars():
 
 
 def test_Events():
-    expr = ['e syscalls/sys_enter_sync',
-            'e syscalls/sys_enter_syncfs',
-            'e syscalls/sys_enter_fsync',
-            'e syscalls/sys_enter_fdatasync',
-            'e syscalls/sys_enter_msync',
-            'e syscalls/sys_enter_sync_file_range']
+    expr = [
+            'e syscalls/sys_enter_dup',
+            'e syscalls/sys_enter_creat',
+            'e syscalls/sys_enter_close',
+            'e syscalls/sys_enter_chmod',
+            'e sched/sched_stat_wait',
+            ]
     surftraceSetup(expr)
 
 if __name__ == "__main__":

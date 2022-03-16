@@ -344,7 +344,7 @@ class CasyncCmdQue(object):
 
 
 class ftrace(object):
-    def __init__(self, show=False, echo=True):
+    def __init__(self, show=False, echo=True, instance="ftrace"):
         super(ftrace, self).__init__()
         self._show = show
         self._echo = echo
@@ -356,6 +356,9 @@ class ftrace(object):
         self._stopHook = []
         self._single = True
         self.__ps = []
+
+        self._instance = instance
+        self._checkIsEmpty()
         # skip 1234.7890: Unknown type 12342
         self._reSkip = re.compile(r"[\d]+\.[\d]+: +Unknown type +[\d]+")
 
@@ -382,10 +385,15 @@ class ftrace(object):
                 raise InvalidArgsException("mount debugfs failed.")
         return s.split(' ')[2]
 
+    def _checkIsEmpty(self):
+        if not os.path.exists(self.baseDir + '/tracing/instances/' + self._instance):
+            os.mkdir(self.baseDir + '/tracing/instances/' + self._instance)
+        return
+
     def tracePre(self, buffSize=2048):
-        pBuffersize = self.baseDir + "/tracing/instances/surftrace/buffer_size_kb"
+        pBuffersize = self.baseDir + "/tracing/instances/%s/buffer_size_kb" % self._instance
         self._echoPath(pBuffersize, "%d" % buffSize)
-        pTrace = self.baseDir + "/tracing/instances/surftrace/trace"
+        pTrace = self.baseDir + "/tracing/instances/%s/trace" % self._instance
         self._echoPath(pTrace)
 
     def _transEcho(self, value):
@@ -442,11 +450,11 @@ class ftrace(object):
         return 0
 
     def __stopTracing(self):
-        pOn = self.baseDir + "/tracing/instances/surftrace/tracing_on"
+        pOn = self.baseDir + "/tracing/instances/%s/tracing_on" % self._instance
         self._echoPath(pOn, "0")
 
     def _start(self):
-        pOn = self.baseDir + "/tracing/instances/surftrace/tracing_on"
+        pOn = self.baseDir + "/tracing/instances/%s/tracing_on" % self._instance
         self._echoPath(pOn, "1")
         self._stopHook.insert(0, self.__stopTracing)
         signal.signal(signal.SIGINT, self.signalHandler)
@@ -454,7 +462,7 @@ class ftrace(object):
     def start(self):
         self._single = True
         self._start()
-        pipe = self.baseDir + "/tracing/instances/surftrace/trace_pipe"
+        pipe = self.baseDir + "/tracing/instances/%s/trace_pipe" % self._instance
         if hasattr(self, "_cbOrig"):
             self.pipe = CasyncPipe(pipe, self._cbOrig)
         else:
@@ -710,13 +718,11 @@ class CdbParser(object):
         return dSend
 
     def getStruct(self, sStruct):
-        dSend = {"log": "ok."}
-        dSend['res'] = self._getStruct(sStruct)
+        dSend = {"log": "ok.", 'res': self._getStruct(sStruct)}
         return dSend
 
     def getType(self, t):
-        dSend = {"log": "ok."}
-        dSend['res'] = self._getType(t)
+        dSend = {"log": "ok.", 'res': self._getType(t)}
         return dSend
 
 
@@ -1025,7 +1031,7 @@ class CgdbParser(object):
             elif len(res) == 1:
                 beg = end = res[0]
             else:
-                beg = res[0];
+                beg = res[0]
                 end = res[1]
             cmd = "disas %s,%s" % (beg, end)
             self._write(cmd)
@@ -1052,14 +1058,16 @@ class CgdbParser(object):
 
 
 class surftrace(ftrace):
-    def __init__(self, args, parser, show=False, echo=True, arch="", stack=False, cb=None, cbOrig=None, cbShow=None):
-        super(surftrace, self).__init__(show=show, echo=echo)
+    def __init__(self, args, parser,
+                 show=False, echo=True, arch="", stack=False,
+                 cb=None, cbOrig=None, cbShow=None,
+                 instance="surftrace"):
+        super(surftrace, self).__init__(show=show, echo=echo, instance=instance)
         self._parser = parser
         self._probes = []
         self._events = []
         self._options = []
-        if not self._show:
-            self._checkIsEmpty()
+
         self._arch = arch
         if self._arch == "":
             self._arch = self._getArchitecture()
@@ -1102,7 +1110,8 @@ class surftrace(ftrace):
         if self._show:
             return
         for p in self._probes:
-            fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + p + "/enable"
+            fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance \
+                    + p + "/enable"
             self._echoPath(fPath, "0")
             cmd = '-:%s' % p
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
@@ -1151,7 +1160,7 @@ class surftrace(ftrace):
 
     def __setupEvent(self, res):
         e = res['symbol']
-        eBase = os.path.join(self.baseDir, "tracing/instances/surftrace/events")
+        eBase = os.path.join(self.baseDir, "tracing/instances/%s/events" % self._instance)
         eDir = os.path.join(eBase, e)
         if not os.path.exists(eDir):
             raise InvalidArgsException("event %s is not an available event, see %s" % (e, eBase))
@@ -1620,7 +1629,8 @@ class surftrace(ftrace):
         findStr = "p:kprobes/%s " % name
         for ev in self._kp_events:
             if ev.startswith(findStr):
-                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+                fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance\
+                        + name + "/enable"
                 self._echoPath(fPath, "0")
                 cmd = '-:%s' % name
                 self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
@@ -1677,19 +1687,20 @@ class surftrace(ftrace):
             if self._show:
                 self.__showExpression(res['type'], cmd, filter)
             else:
-                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % name
+                fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/%s/filter" %\
+                        (self._instance, name)
                 self._echoFilter(fPath, "'%s'" % filter)
-                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+                fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance + name + "/enable"
                 self._echoPath(fPath, "1")
         else:
             if self._show:
                 self.__showExpression(res['type'], cmd)
             else:
-                fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + name + "/enable"
+                fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance + name + "/enable"
                 self._echoPath(fPath, "1")
 
     def _setupStack(self):
-        fPath = self.baseDir + "/tracing/instances/surftrace/options/stacktrace"
+        fPath = self.baseDir + "/tracing/instances/%s/options/stacktrace" % self._instance
         if not os.path.exists(fPath):
             fPath = self.baseDir + "/tracing/options/stacktrace"
         if self._stack:
@@ -1707,15 +1718,6 @@ class surftrace(ftrace):
             return
 
         self._setupStack()
-
-    def _checkIsEmpty(self):
-        if not os.path.exists(self.baseDir + '/tracing/instances/' + 'surftrace'):
-            os.mkdir(self.baseDir + '/tracing/instances/' + 'surftrace')
-        return
-        cmd = 'cat %s/tracing/kprobe_events' % (self.baseDir)
-        line = self._c.cmd(cmd).strip()
-        if line != "":
-            raise FileNotEmptyException("kprobe_events is not empty. should clear other kprobe at first.")
 
     def _checkAvailable(self, name):
         cmd = "cat " + self.baseDir + "/tracing/available_filter_functions |grep " + name
@@ -1793,10 +1795,11 @@ class surftrace(ftrace):
         self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + resFxpr['fxpr'] + "'")
         self._probes.append(resFxpr['name'])
         if res['filter'] != "":
-            fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/%s/filter" % resFxpr['name']
+            fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/%s/filter" % (self._instance, resFxpr['name'])
             self._echoFilter(fPath, "'%s'" % res['filter'])
 
-        fPath = self.baseDir + "/tracing/instances/surftrace/events/kprobes/" + resFxpr['name'] + "/enable"
+        fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance\
+                + resFxpr['name'] + "/enable"
         self._echoPath(fPath, "1")
 
     def _setupFxprs(self):
