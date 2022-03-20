@@ -15,7 +15,7 @@ __author__ = 'liaozhaoyan'
 import shlex
 import re
 from collections import deque
-from surftrace import CexecCmd
+from .execCmd import CexecCmd
 from datetime import datetime
 
 HIST2_MAX = 65

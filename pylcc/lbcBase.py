@@ -24,7 +24,8 @@ import socket
 import hashlib
 from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsLruHash, CmapsPerHash, CmapsLruPerHash, CmapsStack
 from pylcc.lbcMaps import CtypeData
-from surftrace import CexecCmd, InvalidArgsException, RootRequiredException, FileNotExistException
+from surftrace.execCmd import CexecCmd
+from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException
 
 LBC_COMPILE_PORT = 7654
 buffSize = 80 * 1024 * 1024
