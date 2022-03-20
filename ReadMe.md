@@ -42,7 +42,7 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 - 1. 公开发行版linux内核，支持目录参考：http://pylcc.openanolis.cn/version/  （持续更新）
 - 2. 内核支持ftrace，已配置了debugfs，root权限；
-3. Python2 >= 2.7; Python3 >= 3.5，已安装pip；
+- 3. Python2 >= 2.7; Python3 >= 3.5，已安装pip；
 
 ​	surftrace支持 remote（默认），local和gdb三种表达式解析器，要求分别如下：
 
@@ -288,6 +288,7 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
 
 &emsp;要获取 3699行 filp = path_openat(&nd, op, flags | LOOKUP_RCU) 对应的filp的值
 
+
 ```bash
 surftrace 'p do_filp_open+121 filp=X!(u64)%ax'
 echo 'p:f0 do_filp_open+121 filp=%ax:x64' >> /sys/kernel/debug/tracing/kprobe_events
@@ -420,7 +421,6 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 <idle>-0     [001] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046552 delay=87023763 [ns]
  <idle>-0     [005] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046617 delay=87360020 [ns]
 ```
-
 # 3、surfGuide 使用
 
 ​&emsp;surfGuide可以直接运行，命令行已经有一些使用帮助提示。现在手头任务紧张，等有空了再补充完善吧。
