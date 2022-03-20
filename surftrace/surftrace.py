@@ -153,7 +153,7 @@ class surftrace(ftrace):
         if not self._show:
             func = self._checkAvailable(func)
             if func is None:
-                raise InvalidArgsException("%s is not in available_filter_functions" % func)
+                raise InvalidArgsException("%s is not in available_filter_functions" % symbol)
         if offset:
             return "%s+%s" % (func, offset)
         else:
@@ -376,7 +376,10 @@ def setupParser(mode="remote",
         gdbPath = gdb
         return CgdbParser(vmlinuxPath=vmlinux, gdb=gdbPath)
 
+
 examples = """examples:"""
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Trace ftrace kprobe events.",

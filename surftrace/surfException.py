@@ -12,47 +12,49 @@
 """
 __author__ = 'liaozhaoyan'
 
+import traceback
 
-class RootRequiredException(Exception):
+
+class BaseException(Exception):
+    def __init__(self, message):
+        super(BaseException, self).__init__(message)
+        self.message = message + '\n'
+        self.message += traceback.format_exc()
+
+
+class RootRequiredException(BaseException):
     def __init__(self, message):
         super(RootRequiredException, self).__init__(message)
-        self.message = message
 
 
-class FileNotExistException(Exception):
+class FileNotExistException(BaseException):
     def __init__(self, message):
         super(FileNotExistException, self).__init__(message)
-        self.message = message
 
 
-class FileNotEmptyException(Exception):
+class FileNotEmptyException(BaseException):
     def __init__(self, message):
         super(FileNotEmptyException, self).__init__(message)
-        self.message = message
 
 
-class InvalidArgsException(Exception):
+class InvalidArgsException(BaseException):
     def __init__(self, message):
         super(InvalidArgsException, self).__init__(message)
-        self.message = message
 
 
-class DbException(Exception):
+class DbException(BaseException):
     def __init__(self, message):
         super(DbException, self).__init__(message)
-        self.message = message
 
 
-class ExprException(Exception):
+class ExprException(BaseException):
     def __init__(self, message):
         super(ExprException, self).__init__(message)
-        self.message = message
 
 
-class ExecException(Exception):
+class ExecException(BaseException):
     def __init__(self, message):
         super(ExecException, self).__init__(message)
-        self.message = message
 
 
 if __name__ == "__main__":
