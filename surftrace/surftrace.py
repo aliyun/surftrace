@@ -252,7 +252,7 @@ class surftrace(ftrace):
                 res = res.split(" [", 1)[0]
             if res == name:
                 return res
-            elif res.startswith("%s.isra" % name):
+            elif res.startswith("%s.isra" % name) or res.startswith("%s.part" % name):
                 return res
         return None
     

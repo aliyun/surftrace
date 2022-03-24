@@ -16,6 +16,7 @@ import time
 import sys
 sys.path.append("../")
 from surftrace.surfThread import CsurfThread
+from surftrace.execCmd import CexecCmd
 
 lines = ""
 
@@ -29,7 +30,10 @@ def cbShow(line):
 def surftraceSetup(cmds):
     global lines
     lines = ""
+    c = CexecCmd()
     s = CsurfThread(cmds, cb=cbShow)
+    cmd = "echo > /sys/kernel/debug/tracing/instances/surftrace/trace"
+    c.system(cmd)
     s.start()
     time.sleep(1)
     s.stop()
@@ -39,6 +43,10 @@ def surftraceSetup(cmds):
 
 def test_kprobe():
     surftraceSetup(['p wake_up_new_task', 'r wake_up_new_task'])
+
+
+def test_kprobe_part():
+    surftraceSetup(['p copy_process'])
 
 
 def test_kprobeArgs():
@@ -71,7 +79,7 @@ def test_Events():
             'e syscalls/sys_enter_creat',
             'e syscalls/sys_enter_close',
             'e syscalls/sys_enter_chmod',
-            'e sched/sched_stat_wait',
+            'e sched/sched_stat_wait f:delay>1000',
             ]
     surftraceSetup(expr)
 
