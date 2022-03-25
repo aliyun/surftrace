@@ -421,6 +421,62 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 <idle>-0     [001] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046552 delay=87023763 [ns]
  <idle>-0     [005] dN.. 11868700.419049: sched_stat_wait: comm=h2o pid=3046617 delay=87360020 [ns]
 ```
+## 2.6、全局变量以及指定地址访问
+### 2.6.1、访问内核符号：
+&emsp;以访问 task\_group\_cache 这个全局符号为例，它的定义如下：
+
+```c
+static struct kmem_cache *task_group_cache __read_mostly;
+```
+
+&emsp;获取指针信息
+
+```bash
+surftrace 'p wake_up_new_task point=@task_group_cache'
+echo 'p:f0 wake_up_new_task point=@task_group_cache' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-3626383 [000] .... 12192156.289170: f0: (wake_up_new_task+0x0/0x250) point=0xffff929dc0405500
+ <...>-2282088 [006] .... 12192156.294148: f0: (wake_up_new_task+0x0/0x250) point=0xffff929dc0405500
+ <...>-3626558 [001] .... 12192156.305044: f0: (wake_up_new_task+0x0/0x250) point=0xffff929dc0405500
+ <...>-3626558 [001] .... 12192156.305133: f0: (wake_up_new_task+0x0/0x250) point=0xffff929dc0405500
+```
+
+&emsp;解析变量结构体内容：
+
+```bash
+surftrace 'p wake_up_new_task name=!(struct kmem_cache*)@task_group_cache->name size=!(struct kmem_cache*)@task_group_cache->size'
+echo 'p:f0 wake_up_new_task name=+0x0(+0x58(@task_group_cache)):string size=+0x18(@task_group_cache):u32' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-3736660 [014] .... 12192459.242704: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+ <...>-2282088 [008] .... 12192459.266579: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+ <...>-3736816 [001] .... 12192459.278101: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+ <...>-3736816 [001] .... 12192459.278169: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+```
+
+### 2.6.2、访问指定地址
+&emsp;根据ftrace要求，访问地址必须要在内核地址范围内。继续以以访问 task\_group\_cache 这个全局符号为例，首先获取符号地址
+
+```bash
+cat /proc/kallsyms |grep task_group_cache
+ffffffff8647bc30 d task_group_cache
+```
+&emsp;查询命令（注意，不同内核地址不一致，不能简单复制）：
+
+```bah
+surftrace 'p wake_up_new_task name=!(struct kmem_cache*)@0xffffffff8647bc30->name size=!(struct kmem_cache*)@0xffffffff8647bc30->size'
+echo 'p:f0 wake_up_new_task name=+0x0(+0x58(@0xffffffff8647bc30)):string size=+0x18(@0xffffffff8647bc30):u32' >> /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-3910607 [012] .... 12193362.784157: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+ <...>-3386586 [012] .... 12193362.960034: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+ <...>-3386586 [012] .... 12193362.963222: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
+```
+
 # 3、surfGuide 使用
 
 ​&emsp;surfGuide可以直接运行，命令行已经有一些使用帮助提示。现在手头任务紧张，等有空了再补充完善吧。

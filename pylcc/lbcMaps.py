@@ -207,7 +207,7 @@ class CtableBase(CeventBase):
         vsize = self._getSize(self._vd)
         key = self.keys.input(k)
         v = ct.create_string_buffer(vsize)
-        if (self._so.lbc_map_lookup_elem(self._id, key, v) == 0):
+        if self._so.lbc_map_lookup_elem(self._id, key, v) == 0:
             return self.values.load(v)
         return None
 
