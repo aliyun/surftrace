@@ -225,6 +225,11 @@ class CmapsHash(CtableBase):
         super(CmapsHash, self).__init__(so, name, dTypes)
 
 
+class CmapsArray(CtableBase):
+    def __init__(self, so, name, dTypes):
+        super(CmapsArray, self).__init__(so, name, dTypes)
+
+
 class CmapsLruHash(CtableBase):
     def __init__(self, so, name, dTypes):
         super(CmapsHash, self).__init__(so, name, dTypes)
@@ -233,6 +238,11 @@ class CmapsLruHash(CtableBase):
 class CmapsPerHash(CtableBase):
     def __init__(self, so, name, dTypes):
         super(CmapsPerHash, self).__init__(so, name, dTypes)
+
+
+class CmapsPerArray(CtableBase):
+    def __init__(self, so, name, dTypes):
+        super(CmapsPerArray, self).__init__(so, name, dTypes)
 
 
 class CmapsLruPerHash(CtableBase):
@@ -308,8 +318,14 @@ class CmapsEvent(CeventBase):
 
 def paserMaps(so, name, dTypes):
     t = dTypes['type']
-    tDict = {'event': CmapsEvent, 'hash': CmapsHash, 'lruHash': CmapsLruHash, 'perHash': CmapsPerHash,
-             'lruPerHash': CmapsLruPerHash, 'stack': CmapsStack, }
+    tDict = {'event': CmapsEvent,
+             'hash': CmapsHash,
+             'array': CmapsArray,
+             'lruHash': CmapsLruHash,
+             'perHash': CmapsPerHash,
+             'perArray': CmapsPerArray,
+             'lruPerHash': CmapsLruPerHash,
+             'stack': CmapsStack, }
     if t in tDict:
         return tDict['t'](so, name, dTypes)
 

@@ -22,7 +22,8 @@ import time
 import json
 import socket
 import hashlib
-from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsLruHash, CmapsPerHash, CmapsLruPerHash, CmapsStack
+from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsArray, \
+    CmapsLruHash, CmapsPerHash, CmapsPerArray, CmapsLruPerHash, CmapsStack
 from pylcc.lbcMaps import CtypeData
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException
@@ -236,14 +237,21 @@ class ClbcBase(object):
         self.__so.lbc_get_map_types.argtypes = []
         s = self.__so.lbc_get_map_types()
         d = json.loads(s)['maps']
-        tDict = {'event': CmapsEvent, 'hash': CmapsHash, 'lruHash': CmapsLruHash, 'perHash': CmapsPerHash,
-                 'lruPerHash': CmapsLruPerHash, 'stack': CmapsStack, }
+        tDict = {'event': CmapsEvent,
+                 'hash': CmapsHash,
+                 'array': CmapsArray,
+                 'lruHash': CmapsLruHash,
+                 'perHash': CmapsPerHash,
+                 'perArray': CmapsPerArray,
+                 'lruPerHash': CmapsLruPerHash,
+                 'stack': CmapsStack, }
         for k in d.keys():
             t = d[k]['type']
             if t in tDict:
                 self.maps[k] = tDict[t](self.__so, k, d[k])
             else:
                 raise InvalidArgsException("bad type: %s, key: %s" % (t, k))
+
 
 class ClbcApp(ClbcBase):
     def __init__(self, soPath):
@@ -265,6 +273,7 @@ class ClbcApp(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     a = ClbcApp('lbc')
