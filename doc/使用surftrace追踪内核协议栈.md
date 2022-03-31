@@ -38,7 +38,7 @@ unsigned char *head, *data;
 &emsp;针对上述困难，surftrace对skb传参做了相应的特殊处理，以达到方便易用的效果。
 
 ## 2.1、网络协议层标记处理
-&emsp;以追踪网协议栈报文接收的入口\_\_netif\_receive\_skb\_core为例，函数原型定义：
+&emsp;以追踪网协议栈报文接收的入口\_\_netif\_receive\_skb\_core函数为例，函数原型定义：
 
 ```C
 static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc,  struct packet_type **ppt_prev);
@@ -91,7 +91,7 @@ data=@(struct icmphdr*)l3%0->sdata[1]
 ## 2.4、牛刀小试
 &emsp;我们在一个实例上抓到一个非预期的udp报文，它会往目标ip 10.0.1.221 端口号 9988 发送数据，现在想要确定这个报文的发送进程。由于udp是一种面向无连接的通讯协议，无法直接通过netstat等方式锁定发送者。
 
-&emsp;用surftrace可以在ip_output函数处中下钩子：
+&emsp;用surftrace可以在ip\_output函数处中下钩子：
 
 ```C
 int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
@@ -168,3 +168,11 @@ surftrace 'p dev_queue_xmit+678 pfun=%bx'
 # 4、总结
 
 &emsp;surftrace在网络层面的增强，使得用户只需要有相关的网络基础和一定的内核知识储备，就可以用较低编码工作量达到精准追踪网络报文在Linux内核的完整处理过程。适合用于追踪inux内核协议栈代码、定位深层次网络问题。
+
+参考文献
+
+- [surftrace readmde](https://github.com/aliyun/surftrace/blob/master/ReadMe.md)
+- 《TCP/IP详解》
+- [lxr.missinglinkelectronics.com](https://lxr.missinglinkelectronics.com/)
+- 《Linux内核设计与实现》
+- 《深入理解LINUX网络技术内幕》
