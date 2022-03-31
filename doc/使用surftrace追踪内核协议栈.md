@@ -1,5 +1,5 @@
 # 1、理解linux内核协议栈
-&emsp;定位网络问题是一个软件开发者必备一项基础技能，诸如ping连通性、tcpdump抓包分析等手段，可以将对网络问题进行初步定界。然而，当问题进入内核协议栈内部，没有成型的工具使用的时候，就得要从内核协议栈层面着手追踪定位。
+&emsp;定位网络问题是一个软件开发者必备一项基础技能，诸如ping连通性、tcpdump抓包分析等手段，可以对网络问题进行初步定界。然而，当问题深入内核协议栈内部，如何将网络报文与内核协议栈清晰关联起来，精准追踪到关注的报文行进路径呢？
 
 ## 1.1、网络报文分层结构
 &emsp;引用自《TCP/IP详解》卷一
@@ -31,14 +31,14 @@ unsigned char *head, *data;
 
 &emsp;surftrace基于ftrace封装，采用接近于C语言的参数语法风格，将原来繁琐的配置流程优化到一行命令语句完成，极大简化了ftrace部署步骤，是一款非常方便的内核追踪工具。但是要追踪网络报文，光解析一个skb->data指针是远远不够的。存在以下障碍：
 
-- skb->data指针在不同网络层指向的协议头并不一致；
+- skb->data指针在不同网络层指向的协议头并不固定；
 - 除了获取当前结构内容，还有获取上一层报文内容的需求，比如一个我们在udphdr结构体中，是无法直接获取到udp报文内容；
 - 源数据呈现不够人性化。如ipv4报文ip是以一个u32数据类型，可读性不佳，过滤器配置困难。
 
 &emsp;针对上述困难，surftrace对skb传参做了相应的特殊处理，以达到方便易用的效果。
 
 ## 2.1、网络协议层标记处理
-&emsp;以追踪网协议栈报文接收的入口\_\_netif_receive_skb_core为例，函数原型定义：
+&emsp;以追踪网协议栈报文接收的入口\_\_netif\_receive\_skb\_core为例，函数原型定义：
 
 ```C
 static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc,  struct packet_type **ppt_prev);
@@ -75,7 +75,7 @@ tips：
 data=@(struct icmphdr*)l3%0->sdata[1]
 ```
 
-## 2.3、ip和大小端模式转换
+## 2.3、ip和字节序模式转换
 &emsp;网络报文字节序采取的是大端模式，而我们的操作系统一般采用小端模式；同时，ipv4采用了一个unsigned int数据类型来表示一个ip，而我们通常习惯采用 1.2.3.4 的方式来表示一个ipv4地址。上述差异导致直接去解读网络报文内容的时候非常费力。surftrace通过往变量增加前缀的方式，在数据呈现以及过滤的时候，将原始数据根据前缀命名规则进行转换，提升可读性和便利性。
 
 | 前缀名 | 数据输出形式 | 数据长度(字节) |
@@ -89,7 +89,8 @@ data=@(struct icmphdr*)l3%0->sdata[1]
 | B64_ | 16进制 | 8 |
 
 ## 2.4、牛刀小试
-&emsp;我们在一个实例上抓到一个非预期的udp报文，它会往目标ip 10.0.1.221 端口号 9988 发送数据，想要锁定这个报文的发送进程。但由于udp是一种面向无连接的通讯协议，无法直接通过netstat等方式查询到发送者。
+&emsp;我们在一个实例上抓到一个非预期的udp报文，它会往目标ip 10.0.1.221 端口号 9988 发送数据，现在想要确定这个报文的发送进程。由于udp是一种面向无连接的通讯协议，无法直接通过netstat等方式锁定发送者。
+
 &emsp;用surftrace可以在ip_output函数处中下钩子：
 
 ```C
@@ -129,7 +130,7 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 &emsp;通过检查 /proc/net/snmp 以及分析内核日志，没有发现可疑的地方。
 
 ## 3.2、surftrace登场
-&emsp;在1.1节的地图中，我们可以查到网络报文是内核由dev_queue_xmit函数将报文推送到网卡驱动。因此，可以在这个出口先进行probe，过滤ping报文，加上-s 选项，打出调用栈
+&emsp;在1.1节的地图中，我们可以查到网络报文是内核由dev\_queue\_xmit函数将报文推送到网卡驱动。因此，可以在这个出口先进行probe，过滤ping报文，加上-s 选项，打出调用栈
 
 ```bash
 surftrace 'p dev_queue_xmit proto=@(struct iphdr *)l2%0->protocol ip_dst=@(struct iphdr *)l2%0->daddr f:proto==1&&ip_dst==192.168.1.3' -s
@@ -138,7 +139,7 @@ surftrace 'p dev_queue_xmit proto=@(struct iphdr *)l2%0->protocol ip_dst=@(struc
 
 ![stackbase](image/stackbase.png)
 
-&emsp;由于问题复现概率比较高，我们可以将怀疑的重点方向先放在包发送流程中，即从icmp_echo 函数往上，用surftrace每个符号都加一个trace点，看看回包到底消失在哪里。
+&emsp;由于问题复现概率比较高，我们可以将怀疑的重点方向先放在包发送流程中，即从icmp\_echo 函数往上，用surftrace在每一个符号都加一个trace点，追踪下回包到底消失在哪里。
 
 ![stackout](image/stackout.png)
 
@@ -166,4 +167,4 @@ surftrace 'p dev_queue_xmit+678 pfun=%bx'
 
 # 4、总结
 
-&emsp;surftrace在网络层面的增强，用户只需要有相关的网络基础和一定的内核知识储备，就可以用较低编码工作量达到精准追踪网络报文在Linux内核的完整处理过程。适合用于追踪inux内核协议栈代码、定位深层次网络问题。
+&emsp;surftrace在网络层面的增强，使得用户只需要有相关的网络基础和一定的内核知识储备，就可以用较低编码工作量达到精准追踪网络报文在Linux内核的完整处理过程。适合用于追踪inux内核协议栈代码、定位深层次网络问题。
