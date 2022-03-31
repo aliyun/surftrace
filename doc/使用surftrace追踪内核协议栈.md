@@ -1,9 +1,11 @@
-系统运维SIG致力于打造一个集主机管理、配置部署、监控报警、异常诊断、安全审计等一系列功能的自动化运维平台。
+龙蜥社区系统运维SIG致力于打造一个集主机管理、配置部署、监控报警、异常诊断、安全审计等一系列功能的自动化运维平台。
 
-作者：廖肇燕 系统运维SIG
+作者：廖肇燕 系统运维SIG 
 
-欢迎更多开发者加入系统运维 SIG：
+欢迎更多开发者加入系统运维SIG 
+
 网址：https://openanolis.cn/sig/sysom
+
 邮件列表：sysom@lists.openanolis.cn
 
 
@@ -53,7 +55,7 @@ unsigned char *head, *data;
 static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc,  struct packet_type **ppt_prev);
 ```
 
-&emsp;解析每个skb对应报文三次协议的方法：
+&emsp;解析每个skb对应报文三层协议成员的方法：
 
 ```bash
 surftrace 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol`
