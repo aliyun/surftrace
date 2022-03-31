@@ -1,3 +1,12 @@
+系统运维SIG致力于打造一个集主机管理、配置部署、监控报警、异常诊断、安全审计等一系列功能的自动化运维平台。
+
+作者：廖肇燕 系统运维SIG
+
+欢迎更多开发者加入系统运维 SIG：
+网址：https://openanolis.cn/sig/sysom
+邮件列表：sysom@lists.openanolis.cn
+
+
 # 1、理解linux内核协议栈
 &emsp;定位网络问题是一个软件开发者必备一项基础技能，诸如ping连通性、tcpdump抓包分析等手段，可以对网络问题进行初步定界。然而，当问题深入内核协议栈内部，如何将网络报文与内核协议栈清晰关联起来，精准追踪到关注的报文行进路径呢？
 
@@ -46,8 +55,8 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc,  struc
 
 &emsp;解析每个skb对应报文三次协议的方法：
 
-```
-surftrace 'p _netifreceiveskbcore proto=@(struct iphdr *)l3%0->protocol`
+```bash
+surftrace 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol`
 ```
 &emsp;协议成员获取方法为 @(struct iphdr *)l3%0->protocol
 
