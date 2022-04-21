@@ -180,6 +180,8 @@ surftrace 'p dev_queue_xmit+678 pfun=%bx'
 
 &emsp;surftrace在网络层面的增强，使得用户只需要有相关的网络基础和一定的内核知识储备，就可以用较低编码工作量达到精准追踪网络报文在Linux内核的完整处理过程。适合用于追踪linux内核协议栈代码、定位深层次网络问题。
 
+&emsp;surftrace是一个ftrace封装器和开发编译平台，既能让用户基于libbpf快速构建工程进行开发，也能作为ftrace的封装器进行trace命令编写。项目包含surftrace工具集和pylcc、glcc(python or generic C language for libbpf Compiler Collection)，提供远程和本地eBPF的编译能力。
+
 参考文献
 
 - [surftrace readmde](https://github.com/aliyun/surftrace/blob/master/ReadMe.md)

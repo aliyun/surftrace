@@ -42,7 +42,7 @@ struct val_t {
 };
 
 struct data_t {
-    enum trace_mode mode;
+    int mode;
     u32 pid;
     u32 sz;
     u64 delta_us;
@@ -213,7 +213,6 @@ if __name__ == "__main__":
         bpfProg = bpfProg.replace('TYPE_FILTER', '!S_ISREG(mode)')
 
     if debug or args.ebpf:
-        print(bpfProg)
         if args.ebpf:
             exit()
 
