@@ -15,13 +15,12 @@ __author__ = 'liaozhaoyan'
 import os
 import sys
 import json
-import socket
+import requests
 from .baseParser import CbaseParser
 from .execCmd import CexecCmd
 from .surfException import DbException
 
-LBC_COMPILE_PORT = 7654
-LBCBuffSize = 80 * 1024 * 1024
+LBC_COMPILE_PORT = 7655
 
 
 class ClbcClient(CbaseParser):
@@ -33,56 +32,26 @@ class ClbcClient(CbaseParser):
         if ver == "":
             ver = c.cmd('uname -r')
         if arch == "":
-            arch = self._getArchitecture(c)
+            arch = c.cmd('uname -m')
         self._server = server
         self._ver = ver
         self._arch = arch
         self._fastOff = False
+        self._url = "http://%s:%d/lbc" % (server, LBC_COMPILE_PORT)
 
-    def _getArchitecture(self, c):
-        return c.cmd('uname -m')
-
-    def _setupSocket(self):
-        addr = (self._server, LBC_COMPILE_PORT)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def _post(self, send):
         try:
-            s.connect(addr)
-        except socket.gaierror:
-            raise DbException("cannot connect remote server:%s" % self._server)
-        return s
-
-    @staticmethod
-    def _send_lbc(s, send):
-        send = "LBC%08x" % (len(send)) + send
-        s.send(send.encode())
-
-    @staticmethod
-    def _recv_lbc(s):
-        if sys.version_info.major == 2:
-            d = s.recv(LBCBuffSize)
-        else:
-            d = s.recv(LBCBuffSize).decode()
-        if d[:3] != "LBC":
-            return None
-        size = d[3:11]
-        try:
-            size = int(size, 16) + 11
-        except:
-            raise DbException("bad lbc Exception, %s" % size)
-        if size > LBCBuffSize:
-            return None
-        while len(d) < size:
-            if sys.version_info.major == 2:
-                d += s.recv(LBCBuffSize)
-            else:
-                d += s.recv(LBCBuffSize).decode()
-        res = json.loads(d[11:])
-        if res['log'] != "ok.":
+            res = requests.post(self._url, data=send, headers={'Connection': 'close'})
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.ConnectTimeout
+                ):
+            raise DbException("bad lbc server")
+        rd = json.loads(res.text)
+        if rd['log'] != 'ok.':
             raise DbException('db set return %s' % res["log"])
-        return res
+        return json.loads(res.text)
 
     def getFunc(self, func, ret=None, arg=None):
-        s = self._setupSocket()
         dSend = {"arch": self._arch,
                  "ver": self._ver,
                  "cmd": "func",
@@ -91,28 +60,23 @@ class ClbcClient(CbaseParser):
             dSend['ret'] = ret
         if arg:
             dSend['arg'] = arg
-        self._send_lbc(s, json.dumps(dSend))
-        return self._recv_lbc(s)
+        return self._post(dSend)
 
     def getStruct(self, sStruct):
-        s = self._setupSocket()
         dSend = {"arch": self._arch,
                  "ver": self._ver,
                  "cmd": "struct",
                  "struct": sStruct}
-        self._send_lbc(s, json.dumps(dSend))
-        return self._recv_lbc(s)
+        return self._post(dSend)
 
     def getType(self, t):
-        s = self._setupSocket()
         if "*" in t:
             t = '_'
         dSend = {"arch": self._arch,
                  "ver": self._ver,
                  "cmd": "type",
                  "type": t}
-        self._send_lbc(s, json.dumps(dSend))
-        return self._recv_lbc(s)
+        return self._post(dSend)
 
 
 if __name__ == "__main__":
