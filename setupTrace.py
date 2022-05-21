@@ -13,15 +13,15 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.5.2'
+VERSION = '0.6.2'
 
 import sys
 from setuptools import setup, find_packages
 
 if sys.version_info.major == 2:
-    reqLists = ["pip==20.3.4"]
+    reqLists = ["certifi==2017.4.17", "pip==20.3.4", "requests"]
 else:
-    reqLists = []
+    reqLists = ["requests"]
 
 setup(name='surftrace',
       version=VERSION,
@@ -37,12 +37,13 @@ setup(name='surftrace',
                    "Programming Language :: Python :: 3.7",
                    "Programming Language :: Python :: 3.8",
                    "Programming Language :: Python :: 3.9",
+                   "Programming Language :: Python :: 3.10",
                    "Programming Language :: Python :: Implementation :: PyPy",
                    ],  # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
       keywords='linux kernel trace',
       author='liaozhaoyan',
-      author_email='zhoayan.liao@linux.alibaba.com',
-      url="https://github.com/aliyun/surftrace",
+      author_email='zhaoyan.liao@linux.alibaba.com',
+      url="https://gitee.com/anolis/surftrace",
       license='MIT',
       packages=["surftrace"],
       include_package_data=True,

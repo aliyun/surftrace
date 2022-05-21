@@ -9,7 +9,7 @@
 
 ​&emsp;ftrace是一个内核中的追踪器，用于帮助系统开发者或设计者查看内核运行情况，它可以被用来调试或者分析延迟/性能等常见问题。早期 ftrace 是一个 function tracer，仅能够记录内核的函数调用流程。如今ftrace已经成为一个开发框架，从2.6内核开始引入，是一套公认安全、可靠、高效的内核数据获取方式。
 
-​&emsp;ftrace对使用者的要求比较高，以对内核符号 wake_up_new_task 进行trace，同时要获取入参(struct task_struct *)->comm 成员信息为例，启动配置需要经历三个步骤：
+​&emsp;ftrace对使用者的要求比较高，以对内核符号 wake\_up\_new\_task 进行trace，同时要获取入参(struct task\_struct *)->comm 成员信息为例，启动配置需要经历三个步骤：
 
 ```bash
 echo 'p:f0 wake_up_new_task comm=+0x678(%di):string' >> /sys/kernel/debug/tracing/kprobe_events

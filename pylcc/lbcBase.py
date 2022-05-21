@@ -18,18 +18,28 @@ import os
 import base64
 import ctypes as ct
 import _ctypes as _ct
-import time
 import json
-import socket
 import hashlib
 from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsArray, \
     CmapsLruHash, CmapsPerHash, CmapsPerArray, CmapsLruPerHash, CmapsStack
-from pylcc.lbcMaps import CtypeData
 from surftrace.execCmd import CexecCmd
-from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException
+from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
+from surftrace.lbcClient import ClbcClient
 
-LBC_COMPILE_PORT = 7654
-buffSize = 80 * 1024 * 1024
+LBC_COMPILE_PORT = 7655
+SEG_UNIT = 4096
+
+
+def segDecode(stream):
+    line = b""
+    l = len(stream)
+    for i in range(0, l, 4 * SEG_UNIT):
+        s = stream[i:i + 4 * SEG_UNIT]
+        line += base64.b64decode(s)
+    if l % (4 * SEG_UNIT):
+        i = int(l / (4 * SEG_UNIT) * (4 * SEG_UNIT))
+        line += base64.b64decode(stream[i:])
+    return line
 
 
 class ClbcBase(object):
@@ -49,19 +59,19 @@ class ClbcBase(object):
         super(ClbcBase, self).__init__()
         self.__need_del = False
         self._server = server
-        c = CexecCmd()
-        self.__checkRoot(c)
+        self._c = CexecCmd()
+        self._checkRoot()
         self._env = env
         self._logLevel = logLevel
 
         if ver == "":
-            ver = c.cmd('uname -r')
+            ver = self._c.cmd('uname -r')
         if arch == "":
-            arch = self._getArchitecture(c)
-        self.__checkBtf(ver, arch)
-        bpf_so = self.__getSo(bpf, bpf_str, ver, arch)
+            arch = self._c.cmd('uname -m')
+        self._checkBtf(ver, arch)
+        bpf_so = self._getSo(bpf, bpf_str, ver, arch)
 
-        self.__loadSo(bpf_so)
+        self._loadSo(bpf_so)
         self.maps = {}
         self._loadMaps()
 
@@ -69,49 +79,40 @@ class ClbcBase(object):
         if self.__need_del:
             self.__so.lbc_bpf_exit()
 
-    def __checkBtf(self, ver, arch):
+    def _checkBtf(self, ver, arch):
         if os.path.exists('/sys/kernel/btf/vmlinux'):
             return
         name = "/boot/vmlinux-%s" % ver
         if not os.path.exists(name):
-            dSend = {"cmd": 'btf', 'ver': ver, 'arch': arch}
-            send = json.dumps(dSend)
-            addr = (self._server, LBC_COMPILE_PORT)
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect(addr)
-            self._send_lbc(s, send)
-            dRecv = self._recv_lbc(s)
-            s.close()
+            cli = ClbcClient(server=self._server, ver=ver, arch=arch)
+            dRecv = cli.getBtf()
             if dRecv['btf'] is None:
                 print("get btf failed, log is:\n%s" % dRecv['log'])
                 raise InvalidArgsException("get btf failed.")
             print("get btf from remote success.")
             with open(name, 'wb') as f:
-                f.write(base64.b64decode(dRecv['btf']))
+                f.write(segDecode(dRecv['btf']))
 
     @staticmethod
     def _closeSo(so):
         _ct.dlclose(so._handle)
 
-    def _getArchitecture(self, c):
-        return c.cmd('uname -m')
-
-    def __getSo(self, bpf, s, ver, arch):
+    def _getSo(self, bpf, s, ver, arch):
         bpf_so = self._wPath + '/' + bpf + ".so"
         need = False
         if s == "":
             bpf_c = self._wPath + '/' + bpf + ".bpf.c"
-            if self.__checkCCompile(bpf_c, bpf_so, ver, arch):
+            if self._checkCCompile(bpf_c, bpf_so, ver, arch):
                 with open(bpf_c, 'r') as f:
                     s = f.read()
                 need = True
         else:
-            need = self.__checkStrCompile(s, bpf_so, ver, arch)
+            need = self._checkStrCompile(s, bpf_so, ver, arch)
         if need:
             self._compileSo(s, bpf_so, ver, arch)
         return bpf_so
 
-    def __checkCCompile(self, bpf_c, bpf_so, ver, arch):
+    def _checkCCompile(self, bpf_c, bpf_so, ver, arch):
         cFlag = os.path.exists(bpf_c)
         oFlag = os.path.exists(bpf_so)
         if not (cFlag or oFlag):  # is not exist
@@ -119,7 +120,7 @@ class ClbcBase(object):
         elif not oFlag and cFlag:  # only bpf.c
             return True
         elif oFlag and not cFlag:  # only so, should check version
-            if self.__checkVer(bpf_so, ver, arch):
+            if self._checkVer(bpf_so, ver, arch):
                 raise FileNotExistException("bad bpf.so and not bpf.c")
             return False
         else:  # both bpf.c and bo, check hash and version
@@ -129,11 +130,11 @@ class ClbcBase(object):
                 cHash = hashlib.sha256(s.encode()).hexdigest()
             else:
                 cHash = hashlib.sha256(s).hexdigest()
-            if self.__checkHash(bpf_so, cHash):
+            if self._checkHash(bpf_so, cHash):
                 return True
-            return self.__checkVer(bpf_so, ver, arch)
+            return self._checkVer(bpf_so, ver, arch)
 
-    def __checkStrCompile(self, s, bpf_so, ver, arch):
+    def _checkStrCompile(self, s, bpf_so, ver, arch):
         oFlag = os.path.exists(bpf_so)
         if not oFlag:  # only string
             return True
@@ -142,32 +143,35 @@ class ClbcBase(object):
                 cHash = hashlib.sha256(s.encode()).hexdigest()
             else:
                 cHash = hashlib.sha256(s).hexdigest()
-            if self.__checkHash(bpf_so, cHash):
+            if self._checkHash(bpf_so, cHash):
                 return True
-            return self.__checkVer(bpf_so, ver, arch)
+            return self._checkVer(bpf_so, ver, arch)
 
-    def __parseVer(self, ver):
+    def _parseVer(self, ver):
         major, minor, _ = ver.split(".", 2)
         return major
 
-    def __checkVer(self, bpf_so, ver, arch):
+    def _checkVer(self, bpf_so, ver, arch):
         """if should compile return ture, else return false"""
         try:
             so = ct.CDLL(bpf_so)
-        except:
+        except (OSError, FileNotFoundError):
             return True
         so.lbc_get_map_types.restype = ct.c_char_p
         so.lbc_get_map_types.argtypes = []
         s = so.lbc_get_map_types()
-        uname = json.loads(s)['kern_version']
+        soVer = json.loads(s)['kern_version']
         self._closeSo(so)
-        return not self.__parseVer(uname) == self.__parseVer(ver)
 
-    def __checkHash(self, bpf_so, cHash):
+        soMajor = self._parseVer(soVer)
+        hMajor = self._parseVer(ver)
+        return (int(soMajor) > 3) ^ (int(hMajor) > 3)
+
+    def _checkHash(self, bpf_so, cHash):
         """if should compile return ture, else return false"""
         try:
             so = ct.CDLL(bpf_so)
-        except:
+        except (OSError, FileNotFoundError):
             return True
         so.lbc_get_map_types.restype = ct.c_char_p
         so.lbc_get_map_types.argtypes = []
@@ -176,53 +180,26 @@ class ClbcBase(object):
         self._closeSo(so)
         return not cHash == soHash
 
-    def __checkRoot(self, c):
+    def _checkRoot(self):
         cmd = 'whoami'
-        line = c.cmd(cmd).strip()
+        line = self._c.cmd(cmd).strip()
         if line != "root":
             raise RootRequiredException('this app need run as root')
 
-    @staticmethod
-    def _recv_lbc(s):
-        d = s.recv(buffSize).decode()
-        if d[:3] != "LBC":
-            print("not lbc")
-            return None
-        size = d[3:11]
-        try:
-            size = int(size, 16) + 11
-        except ValueError:
-            print("bad size", size)
-            return None
-        while len(d) < size:
-            d += s.recv(buffSize).decode()
-        return json.loads(d[11:])
-
-    @staticmethod
-    def _send_lbc(s, send):
-        send = "LBC%08x" % (len(send)) + send
-        s.send(send.encode())
-
     def _compileSo(self, s, bpf_so, ver, arch):
-        # ver = coreDs[self.__parseVer(ver)]
-        dSend = {"cmd": "c", 'code': s, 'ver': ver, 'arch': arch, 'env': self._env}
-        send = json.dumps(dSend)
-        addr = (self._server, LBC_COMPILE_PORT)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(addr)
-        self._send_lbc(s, send)
-        dRecv = self._recv_lbc(s)
-        s.close()
+        cli = ClbcClient(server=self._server, ver=ver, arch=arch, port=LBC_COMPILE_PORT)
+        dRecv = cli.getC(s, self._env)
         if dRecv is None:
             raise Exception("receive error")
+        print(dRecv.keys())
         if dRecv['so'] is None:
-            print("compile failed, log is:\n%s" % dRecv['log'])
+            print("compile failed, log is:\n%s" % dRecv['clog'])
             raise InvalidArgsException("compile failed.")
         print("remote server compile success.")
         with open(bpf_so, 'wb') as f:
-            f.write(base64.b64decode(dRecv['so']))
+            f.write(segDecode(dRecv['so']))
 
-    def __loadSo(self, bpf_so):
+    def _loadSo(self, bpf_so):
         self.__need_del = True
         self.__so = ct.CDLL(bpf_so)
         self.__so.lbc_bpf_init.restype = ct.c_int

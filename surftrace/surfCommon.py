@@ -22,6 +22,7 @@ HIST2_MAX = 65
 HIST10_MAX = 20
 HIST_UNIT = "KMGPTE"
 
+
 class CsurfList(deque):
     def __init__(self, maxLen=1024):
         super(CsurfList, self).__init__(maxlen=maxLen)
@@ -183,6 +184,7 @@ def _transProbe(line, res):
 
     res['args'] = _splitArgs(args, '=')
 
+
 def transProbeLine(line):
     tasks, rest = line.split(" [", 1)
     task, pid = tasks.strip().rsplit('-', 1)
@@ -207,6 +209,7 @@ def transProbeLine(line):
     else:
         raise ValueError("surftrace cannot fit %s now." % line)
     return res
+
 
 if __name__ == "__main__":
     pass

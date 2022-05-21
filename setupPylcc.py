@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.1.8'
+VERSION = '0.2.1'
 
 from setuptools import setup
 
@@ -31,17 +31,18 @@ setup(name='pylcc',
                    "Programming Language :: Python :: 3.7",
                    "Programming Language :: Python :: 3.8",
                    "Programming Language :: Python :: 3.9",
+                   "Programming Language :: Python :: 3.10",
                    "Programming Language :: Python :: Implementation :: PyPy",
                    ],  # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
       keywords='linux kernel trace',
       author='liaozhaoyan',
       author_email='zhaoyan.liao@linux.alibaba.com',
-      url="https://github.com/aliyun/surftrace",
+      url="https://gitee.com/anolis/surftrace",
       license='MIT',
       packages=["pylcc"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=['surftrace>=0.1'],
+      install_requires=['surftrace>=0.6'],
       )
 
 if __name__ == "__main__":

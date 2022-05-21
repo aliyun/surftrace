@@ -24,7 +24,7 @@ LBC_COMPILE_PORT = 7655
 
 
 class ClbcClient(CbaseParser):
-    def __init__(self, server="pylcc.openanolis.cn", ver="", arch=""):
+    def __init__(self, server="pylcc.openanolis.cn", ver="", arch="", port=LBC_COMPILE_PORT):
         super(ClbcClient, self).__init__()
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
@@ -37,19 +37,24 @@ class ClbcClient(CbaseParser):
         self._ver = ver
         self._arch = arch
         self._fastOff = False
-        self._url = "http://%s:%d/lbc" % (server, LBC_COMPILE_PORT)
+        self._url = "http://%s:%d/lbc" % (server, port)
 
-    def _post(self, send):
+    def _post(self, send, tmo=5):
+        cmd = json.dumps([send])
         try:
-            res = requests.post(self._url, data=send, headers={'Connection': 'close'})
+            res = requests.post(self._url, data=cmd, headers={'Connection': 'close'}, timeout=tmo)
         except (requests.exceptions.ConnectionError,
                 requests.exceptions.ConnectTimeout
                 ):
             raise DbException("bad lbc server")
-        rd = json.loads(res.text)
-        if rd['log'] != 'ok.':
-            raise DbException('db set return %s' % res["log"])
-        return json.loads(res.text)
+        rd = json.loads(res.text.encode())
+        if rd['code'] != 200:
+            raise DbException("remote server result %s, text: %s" % res.text)
+
+        ret = rd['res'][0]
+        if ret['log'] != 'ok.':
+            raise DbException('db set return %s' % ret["log"])
+        return ret
 
     def getFunc(self, func, ret=None, arg=None):
         dSend = {"arch": self._arch,
@@ -77,6 +82,21 @@ class ClbcClient(CbaseParser):
                  "cmd": "type",
                  "type": t}
         return self._post(dSend)
+
+    def getBtf(self):
+        dSend = {"arch": self._arch,
+                 "ver": self._ver,
+                 "cmd": "btf",
+                 }
+        return self._post(dSend)
+
+    def getC(self, code, env):
+        dSend = {"cmd": "c",
+                 'code': code,
+                 'ver': self._ver,
+                 'arch': self._arch,
+                 'env': env}
+        return self._post(dSend, tmo=30)
 
 
 if __name__ == "__main__":
