@@ -408,6 +408,8 @@ def main():
         if args.arch not in ('x86', 'x86_64', 'aarch64'):
             raise InvalidArgsException('not support architecture %s' % args.arch)
         arch = args.arch
+    if "LBC_SERVER" in os.environ:
+         args.rip = os.environ["LBC_SERVER"]
     localParser = setupParser(args.mode, args.db, args.rip, args.gdb, args.vmlinux, arch)
 
     if args.line:

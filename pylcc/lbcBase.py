@@ -191,7 +191,6 @@ class ClbcBase(object):
         dRecv = cli.getC(s, self._env)
         if dRecv is None:
             raise Exception("receive error")
-        print(dRecv.keys())
         if dRecv['so'] is None:
             print("compile failed, log is:\n%s" % dRecv['clog'])
             raise InvalidArgsException("compile failed.")
