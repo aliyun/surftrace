@@ -53,6 +53,8 @@ class ClbcClient(CbaseParser):
 
         ret = rd['res'][0]
         if ret['log'] != 'ok.':
+            if 'clog' in ret:
+                print("compile failed.\n%s\n" % ret['clog'])
             raise DbException('db set return %s' % ret["log"])
         return ret
 
