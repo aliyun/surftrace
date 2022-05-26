@@ -47,6 +47,7 @@ int j_check_timer_delay(struct pt_regs *ctx)
 }
 """
 
+
 class Crunlatency(ClbcBase):
     def __init__(self, lat=10):
         self._exec = CexecCmd
@@ -71,10 +72,8 @@ class Crunlatency(ClbcBase):
         self._exec.cmd("echo %d > /proc/runlatency/enable" % int(lat))
         self._exec.cmd("echo 1 > /proc/runlatency/enable")
 
-
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         if e.type == 0:
             print("cpu%d catch %dns hard irq delay.")
         else:
@@ -91,6 +90,7 @@ class Crunlatency(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     lat = 10

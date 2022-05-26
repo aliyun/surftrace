@@ -57,8 +57,7 @@ class ChashMap(ClbcBase):
         super(ChashMap, self).__init__("hashMap", bpf_str=bpfPog)
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         print("current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))

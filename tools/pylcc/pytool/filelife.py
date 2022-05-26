@@ -103,8 +103,7 @@ class CfileLife(ClbcBase):
         print("%-8s %-6s %-16s %-7s %s" % ("TIME", "PID", "COMM", "AGE(s)", "FILE"))
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['events'].event(stream)
+        e = self.getMap('events', data, size)
         print("%-8s %-6d %-16s %-7.2f %s" % (strftime("%H:%M:%S"), e.pid,
                                              e.comm, float(e.delta) / 1000,
                                              e.fname))

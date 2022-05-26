@@ -31,11 +31,13 @@ int j_wake_up_new_task(struct pt_regs *ctx)
 char _license[] SEC("license") = "GPL";
 """
 
+
 class Chello(ClbcBase):
     def __init__(self):
         super(Chello, self).__init__("hello", bpf_str=bpfPog)
         while True:
             time.sleep(1)
+
 
 if __name__ == "__main__":
     hello = Chello()

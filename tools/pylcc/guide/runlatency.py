@@ -78,8 +78,7 @@ class Crunlatency(ClbcBase):
         self._exec.system("echo 0 > /proc/runlatency/enable")
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         print(e.type)
         if e.type == 1:
             print("cpu%d catch %dns hard irq delay." % (e.cpu, e.delayed))

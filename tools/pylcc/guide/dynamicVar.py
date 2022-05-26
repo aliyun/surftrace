@@ -51,13 +51,13 @@ int j_wake_up_new_task(struct pt_regs *ctx)
 char _license[] SEC("license") = "GPL";
 """
 
+
 class CdynamicVar(ClbcBase):
     def __init__(self):
         super(CdynamicVar, self).__init__("dynamicVar", bpf_str=bpfPog)
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         print("current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
@@ -69,6 +69,7 @@ class CdynamicVar(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     bpfPog = bpfPog.replace("FILTER_PID", sys.argv[1])

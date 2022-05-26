@@ -48,7 +48,7 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 - 1. remote mode：可以访问pylcc.openanolis.cn
 - 2. local mode：从http://pylcc.openanolis.cn/db/ 下载对应arch和内核的下载到本地
-- 3. gdb mode：gdb version > 8.0，存放有对应内核的vmlinux；对于gdb模式而言，不受公开发行版内核限制
+- 3. gdb mode：gdb version > 8.0，存放有对应内核的vmlinux；对于gdb模式而言，不受公开发行版内核限制(性能太弱，已经不再推荐)
 
 ## 2.1、安装
 
@@ -65,6 +65,8 @@ Successfully built surftrace
 Installing collected packages: surftrace
 Successfully installed surftrace-0.2
 ```
+
+&emsp;0.6以上（含）的版本采用https流的方式与服务器传输数据，低于0.6版本采用tcp 流传输。后者服务将从2023年12月31号起后下线。
 
 ​&emsp;检查安装是否成功
 
@@ -615,8 +617,7 @@ class CeventOut(ClbcBase):
         super(CeventOut, self).__init__("eventOut", bpf_str=bpfPog)
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         print("current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
@@ -649,8 +650,7 @@ if __name__ == "__main__":
 
 &emsp;接下来看_cb 回调函数：
 
-- stream = ct.string\_at(data, size) 在入参中解析出数据流；
-- e = self.maps['e\_out'].event(stream) 将数据流生成对应的数据对象；
+- e = self.getMap('e_out', data, size) 将数据流生成对应的数据对象；
 - 生成了数据对象后，就可以通过成员的方式来访问数据对象，该对象成员与bpfProg中 struct data\_t 定义保持一致
 
 #### 6.3.2.3 执行结果

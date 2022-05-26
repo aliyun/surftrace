@@ -161,8 +161,7 @@ class CfileSlower(ClbcBase):
                                                    "BYTES", "LAT(ms)", "FILENAME"))
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['events'].event(stream)
+        e = self.getMap('events', data, size)
 
         ms = float(e.delta_us) / 1000
         name = e.name

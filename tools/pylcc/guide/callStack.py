@@ -48,13 +48,13 @@ int j_wake_up_new_task(struct pt_regs *ctx)
 char _license[] SEC("license") = "GPL";
 """
 
+
 class CcallStack(ClbcBase):
     def __init__(self):
         super(CcallStack, self).__init__("callStack", bpf_str=bpfPog)
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         print("current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
@@ -63,7 +63,6 @@ class CcallStack(ClbcBase):
         for s in stacks:
             print(s)
 
-
     def loop(self):
         self.maps['e_out'].open_perf_buffer(self._cb)
         try:
@@ -71,6 +70,7 @@ class CcallStack(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     e = CcallStack()

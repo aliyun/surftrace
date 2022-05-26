@@ -16,6 +16,7 @@ __author__ = 'liaozhaoyan'
 import ctypes as ct
 from pylcc.lbcBase import ClbcBase
 
+
 class codeSeparate(ClbcBase):
     def __init__(self):
         super(codeSeparate, self).__init__("independ")
@@ -34,6 +35,7 @@ class codeSeparate(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     e = codeSeparate()

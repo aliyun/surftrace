@@ -228,6 +228,13 @@ class ClbcBase(object):
             else:
                 raise InvalidArgsException("bad type: %s, key: %s" % (t, k))
 
+    def getMap(self, name, data, size):
+        stream = ct.string_at(data, size)
+        try:
+            return self.maps[name].event(stream)
+        except IndexError:
+            return None
+
 
 class ClbcApp(ClbcBase):
     def __init__(self, soPath):

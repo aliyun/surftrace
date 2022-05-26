@@ -42,8 +42,7 @@ class CeventOut(ClbcBase):
         super(CeventOut, self).__init__("eventOut", bpf_str=bpfPog)
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         with open(loadavg) as stats:
             avgline = stats.read().rstrip()
         print(("%s Triggered by PID %d (\"%s\"), OOM kill of PID %d (\"%s\")"
