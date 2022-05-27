@@ -13,7 +13,6 @@
 """
 __author__ = 'liaozhaoyan'
 
-import ctypes as ct
 from pylcc.lbcBase import ClbcBase
 
 bpfPog = r"""

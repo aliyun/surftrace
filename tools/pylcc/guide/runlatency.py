@@ -14,10 +14,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-import argparse
-import ctypes as ct
 import sys
-from time import strftime
 from pylcc.lbcBase import ClbcBase, CexecCmd
 
 bpfProg = r"""
@@ -48,6 +45,7 @@ int j_check_timer_delay(struct pt_regs *ctx)
 }
 char _license[] SEC("license") = "GPL";
 """
+
 
 class Crunlatency(ClbcBase):
     def __init__(self, lat=10):
@@ -96,6 +94,7 @@ class Crunlatency(ClbcBase):
             print("key interrupt.")
             self.releaseKo()
             exit()
+
 
 if __name__ == "__main__":
     lat = 10

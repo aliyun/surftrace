@@ -12,10 +12,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-import os
-import ctypes as ct
 import time
-from time import strftime
 from pylcc.lbcBase import ClbcBase
 
 DIST_ARRAYS = 8

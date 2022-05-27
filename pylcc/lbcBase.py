@@ -126,6 +126,7 @@ class ClbcBase(object):
         else:  # both bpf.c and bo, check hash and version
             with open(bpf_c, "r") as f:
                 s = f.read()
+            s += self._env
             if sys.version_info.major >= 3:
                 cHash = hashlib.sha256(s.encode()).hexdigest()
             else:
@@ -139,6 +140,7 @@ class ClbcBase(object):
         if not oFlag:  # only string
             return True
         else:  # both bpf.c and bo, check hash and version
+            s += self._env
             if sys.version_info.major >= 3:
                 cHash = hashlib.sha256(s.encode()).hexdigest()
             else:
@@ -236,28 +238,5 @@ class ClbcBase(object):
             return None
 
 
-class ClbcApp(ClbcBase):
-    def __init__(self, soPath):
-        super(ClbcApp, self).__init__(soPath)
-
-    def _callback(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['my_map'].event(stream)
-        print("%d, %s, 0x%x" % (e.pid, e.comm, e.cookie))
-        tbl = self.maps['pids'].get()
-        if len(tbl) > 20:
-            self.maps['pids'].clear()
-        print(self.maps['callStack'].getStacks(e.stack_id, 2))
-
-    def loop(self):
-        self.maps['my_map'].open_perf_buffer(self._callback)
-        try:
-            self.maps['my_map'].perf_buffer_poll()
-        except KeyboardInterrupt:
-            print("key interrupt.")
-            exit()
-
-
 if __name__ == "__main__":
-    a = ClbcApp('lbc')
-    a.loop()
+    pass

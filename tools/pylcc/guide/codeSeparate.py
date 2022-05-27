@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-import ctypes as ct
+
 from pylcc.lbcBase import ClbcBase
 
 
@@ -22,8 +22,7 @@ class codeSeparate(ClbcBase):
         super(codeSeparate, self).__init__("independ")
 
     def _cb(self, cpu, data, size):
-        stream = ct.string_at(data, size)
-        e = self.maps['e_out'].event(stream)
+        e = self.getMap('e_out', data, size)
         print("current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))

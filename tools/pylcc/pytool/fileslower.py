@@ -14,7 +14,6 @@
 __author__ = 'liaozhaoyan'
 
 import argparse
-import ctypes as ct
 import time
 from pylcc.lbcBase import ClbcBase
 
@@ -153,6 +152,8 @@ mode_s = {
     1: 'W',
 }
 start_ts = time.time()
+
+
 class CfileSlower(ClbcBase):
     def __init__(self):
         super(CfileSlower, self).__init__("fileslower", bpf_str=bpfProg)
@@ -176,6 +177,7 @@ class CfileSlower(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     # arguments

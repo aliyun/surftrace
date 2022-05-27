@@ -14,7 +14,6 @@
 __author__ = 'liaozhaoyan'
 
 import argparse
-import ctypes as ct
 from time import strftime
 from pylcc.lbcBase import ClbcBase
 
@@ -96,6 +95,7 @@ int j_vfs_unlink(struct pt_regs *ctx)
 }
 char _license[] SEC("license") = "GPL";
 """
+
 
 class CfileLife(ClbcBase):
     def __init__(self):

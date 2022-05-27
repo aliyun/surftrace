@@ -14,10 +14,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-import argparse
-import ctypes as ct
 import sys
-from time import strftime
 from pylcc.lbcBase import ClbcBase, CexecCmd
 
 bpfProg = r"""

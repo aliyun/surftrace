@@ -13,7 +13,6 @@
 """
 __author__ = 'liaozhaoyan'
 
-import ctypes as ct
 from pylcc.lbcBase import ClbcBase
 
 bpfPog = r"""
@@ -45,6 +44,7 @@ int j_wake_up_new_task(struct pt_regs *ctx)
 char _license[] SEC("license") = "GPL";
 """
 
+
 class CeventOut(ClbcBase):
     def __init__(self):
         super(CeventOut, self).__init__("eventOut", bpf_str=bpfPog)
@@ -62,6 +62,7 @@ class CeventOut(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     e = CeventOut()
