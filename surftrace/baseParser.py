@@ -17,6 +17,9 @@ class CbaseParser(object):
     def __init__(self):
         pass
 
+    def _checkRes(self, res):
+        return res['log'] == 'ok.' and len(res['res']) > 0
+
     def getFunc(self, func, ret=None, arg=None):
         return None
 

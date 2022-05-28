@@ -16,11 +16,39 @@ import os
 import sys
 import json
 import requests
+import base64
 from .baseParser import CbaseParser
+from .prevPareser import CprevPareser
 from .execCmd import CexecCmd
 from .surfException import DbException
 
 LBC_COMPILE_PORT = 7655
+
+SEG_UNIT = 4096
+
+
+def segDecode(stream):
+    line = b""
+    l = len(stream)
+    for i in range(0, l, 4 * SEG_UNIT):
+        s = stream[i:i + 4 * SEG_UNIT]
+        line += base64.b64decode(s)
+    if l % (4 * SEG_UNIT):
+        i = int(l / (4 * SEG_UNIT) * (4 * SEG_UNIT))
+        line += base64.b64decode(stream[i:])
+    return line
+
+
+def segEncode(stream):
+    line = b""
+    l = len(stream)
+    for i in range(0, l, 3 * SEG_UNIT):
+        s = stream[i:i+3 * SEG_UNIT]
+        line += base64.b64encode(s)
+    if l % (3 * SEG_UNIT):
+        i = int(l / (3 * SEG_UNIT) * (3 * SEG_UNIT))
+        line += base64.b64encode(stream[i:])
+    return line
 
 
 class ClbcClient(CbaseParser):
@@ -38,6 +66,7 @@ class ClbcClient(CbaseParser):
         self._arch = arch
         self._fastOff = False
         self._url = "http://%s:%d/lbc" % (server, port)
+        self._prev = CprevPareser()
 
     def _post(self, send, tmo=5):
         cmd = json.dumps([send])
@@ -59,6 +88,11 @@ class ClbcClient(CbaseParser):
         return ret
 
     def getFunc(self, func, ret=None, arg=None):
+        if self._prev.exist:
+            res = self._prev.getFunc(func, ret, arg)
+            if self._checkRes(res):
+                return res
+
         dSend = {"arch": self._arch,
                  "ver": self._ver,
                  "cmd": "func",
@@ -70,6 +104,11 @@ class ClbcClient(CbaseParser):
         return self._post(dSend)
 
     def getStruct(self, sStruct):
+        if self._prev.exist:
+            res = self._prev.getFunc(sStruct)
+            if self._checkRes(res):
+                return res
+
         dSend = {"arch": self._arch,
                  "ver": self._ver,
                  "cmd": "struct",
@@ -77,6 +116,11 @@ class ClbcClient(CbaseParser):
         return self._post(dSend)
 
     def getType(self, t):
+        if self._prev.exist:
+            res = self._prev.getType(t)
+            if self._checkRes(res):
+                return res
+
         if "*" in t:
             t = '_'
         dSend = {"arch": self._arch,
@@ -98,6 +142,17 @@ class ClbcClient(CbaseParser):
                  'ver': self._ver,
                  'arch': self._arch,
                  'env': env}
+        return self._post(dSend, tmo=30)
+
+    def koBuild(self, kos):
+        if len(kos) < 1:
+            raise ValueError("no file to send.")
+        dSend = {
+            "cmd": "ko",
+            "arch": self._arch,
+            'ver': self._ver,
+            "kos": kos,
+        }
         return self._post(dSend, tmo=30)
 
 

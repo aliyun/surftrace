@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.6.3'
+VERSION = '0.7.1'
 
 import sys
 from setuptools import setup, find_packages
@@ -52,6 +52,7 @@ setup(name='surftrace',
       entry_points={
           'console_scripts': [
               "surftrace = surftrace.surftrace:main",
+              "kobuild = surftrace.kobuild:main",
           ]
       }
       )

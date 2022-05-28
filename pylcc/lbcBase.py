@@ -15,7 +15,6 @@ __author__ = 'liaozhaoyan'
 
 import sys
 import os
-import base64
 import ctypes as ct
 import _ctypes as _ct
 import json
@@ -24,22 +23,9 @@ from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsArray, \
     CmapsLruHash, CmapsPerHash, CmapsPerArray, CmapsLruPerHash, CmapsStack
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
-from surftrace.lbcClient import ClbcClient
+from surftrace.lbcClient import ClbcClient, segDecode
 
 LBC_COMPILE_PORT = 7655
-SEG_UNIT = 4096
-
-
-def segDecode(stream):
-    line = b""
-    l = len(stream)
-    for i in range(0, l, 4 * SEG_UNIT):
-        s = stream[i:i + 4 * SEG_UNIT]
-        line += base64.b64decode(s)
-    if l % (4 * SEG_UNIT):
-        i = int(l / (4 * SEG_UNIT) * (4 * SEG_UNIT))
-        line += base64.b64decode(stream[i:])
-    return line
 
 
 class ClbcBase(object):
