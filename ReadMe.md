@@ -479,6 +479,29 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
  <...>-3386586 [012] .... 12193362.963222: f0: (wake_up_new_task+0x0/0x250) name="task_group" size=704
 ```
 
+## 2.7、自编ko支持
+&emsp;如果需要trace自定义ko，但是默认的数据结构信息只包含发行版中rpm/deb包中的数据。需要生成自定义ko的数据。
+
+### 2.7.1、生成本地数据：
+&emsp;要求：  
+1. surftrace版本不低于0.7.1，可执行pip install -U surftrace 命令进行更新；
+2. 要追踪的ko放在同一目录下，并且没有strip掉调试信息；
+
+&emsp;生成过程比较简单，将ko所在目录作为唯一传参，传kobuild，就可以在当前目录下生成prev.db 文件：  
+
+```bash
+#kobuild ko/
+#ll -h prev.db
+-rw-r--r-- 1 root root 592K May 29 00:10 prev.db
+```
+&emsp;出于效率和尺寸考虑，kobuild会将ko数量限制在32个，总文件大小小于16M，大于此数值会报失败。
+### 2.7.2、使用prev.db：
+&emsp;可以采用以下两种方式使用prev.db 数据：  
+1. 在prev.db 所在的目录下 执行surftrace相关操作；
+2. export LBC_PREVDB 环境变量，指向prev.db 完整路径，含文件名；
+&emsp;此时surftrace会优先检索prev.db中的数据，检索失败后才会进行远端/本地搜索结构信息。
+
+
 # 3、surfGuide 使用
 
 ​&emsp;surfGuide可以直接运行，命令行已经有一些使用帮助提示。现在手头任务紧张，等有空了再补充完善吧。
