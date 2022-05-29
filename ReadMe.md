@@ -484,6 +484,7 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 ### 2.7.1、生成本地数据：
 &emsp;要求：  
+
 1. surftrace版本不低于0.7.1，可执行pip install -U surftrace 命令进行更新；
 2. 要追踪的ko放在同一目录下，并且没有strip掉调试信息；
 
@@ -497,8 +498,10 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 &emsp;出于效率和尺寸考虑，kobuild会将ko数量限制在32个，总文件大小小于16M，大于此数值会报失败。
 ### 2.7.2、使用prev.db：
 &emsp;可以采用以下两种方式使用prev.db 数据：  
+
 1. 在prev.db 所在的目录下 执行surftrace相关操作；
 2. export LBC_PREVDB 环境变量，指向prev.db 完整路径，含文件名；
+ 
 &emsp;此时surftrace会优先检索prev.db中的数据，检索失败后才会进行远端/本地搜索结构信息。
 
 
@@ -811,6 +814,53 @@ entry_SYSCALL_64_after_swapgs
 ```
 
 &emsp;它没有了 bpf_str 入参，此时lcc会尝试从当前目录上下，去找independ.bpf.c并提请编译加载。
+
+### 6.3.7 调试函数
+&emsp;调试信息输出函数函数如下：
+
+```C
+#ifdef LBC_DEBUG
+#define lbc_debug(...) bpf_printk(__VA_ARGS__)
+#else
+#define lbc_debug(...)
+#endif
+```
+&emsp;这个开关可以通过构造函数中env成员传入：
+
+```python
+import time
+from pylcc.lbcBase import ClbcBase
+
+bpfPog = r"""
+#include "lbc.h"
+
+SEC("kprobe/wake_up_new_task")
+int j_wake_up_new_task(struct pt_regs *ctx)
+{
+    struct task_struct* parent = (struct task_struct *)PT_REGS_PARM1(ctx);
+    
+    lbc_debug("hello lcc, parent: %d\n", _(parent->tgid));
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+"""
+
+class Chello(ClbcBase):
+    def __init__(self):
+        super(Chello, self).__init__("hello", bpf_str=bpfPog, env="-DLBC_DEBUG")
+        while True:
+            time.sleep(1)
+
+if __name__ == "__main__":
+    hello = Chello()
+    pass
+```
+
+&emsp;如果不想打印，不配置env参数，默认为空即可。
+
+### 6.3.8 编译宏定义：
+&emsp;可以参考6.3.7的方法传入编译宏，这里不再举例。
 
 ## 6.4 pylcc 与 bcc 对比性能优势
 
