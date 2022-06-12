@@ -753,6 +753,9 @@ LBC_HASH(pid_cnt, u32, u32, 1024);
 &emsp;除了BPF\_MAP\_TYPE\_HASH，lcc当前还支持BPF\_MAP\_TYPE\_LRU\_HASH、BPF\_MAP\_TYPE\_PERCPU\_HASH、
 BPF\_MAP\_TYPE\_LRU\_PERCPU\_HASH等类型，更多类型支持在完善中，敬请期待。
 
+#### 6.3.4.3 注意点
+1. hash map key 应该是是可哈希类型的，如int等，不能为dict（对应自定义结构体）
+
 ### 6.3.5、call stack获取
 
 &emsp;获取内核调用栈是bpf一项非常重要的调试功能，参考 callStack.py，大部分代码与eventOut.py一致。
@@ -879,9 +882,9 @@ if __name__ == "__main__":
 
 |  |  pylcc | bcc |
 | ----- | ---- | ---- |  
-|  rss | 10352 | 92288 |
-| vmpeak | 207444 | 369672 |
-| vmdata | 201284 | 363484 |
+|  rss(kb) | 10352 | 92288 |
+| vmpeak(kb) | 207444 | 369672 |
+| vmdata(kb) | 201284 | 363484 |
 
 
 &emsp;汇总对比如下表，同样的python应用，pylcc在cpu和mem等资源消耗均比bcc有较明显的优势

@@ -24,16 +24,17 @@ from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsArray, \
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
 from surftrace.lbcClient import ClbcClient, segDecode
+from lbcInclude import ClbcInclude
 
 LBC_COMPILE_PORT = 7655
 
 
-class ClbcBase(object):
+class ClbcLoad(object):
     def __init__(self, bpf, bpf_str="",
                  server="pylcc.openanolis.cn",
                  arch="", ver="", env="",
-                 workPath=None, logLevel=-1):
-
+                 workPath=None, incPath=None,
+                 logLevel=-1,):
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
         if "LBC_LOGLEVEL" in os.environ:
@@ -42,8 +43,10 @@ class ClbcBase(object):
             self._wPath = workPath
         else:
             self._wPath = os.getcwd()
-        super(ClbcBase, self).__init__()
-        self.__need_del = False
+        self._incPath = incPath
+        super(ClbcLoad, self).__init__()
+        self._so = None
+        self._need_deinit = False
         self._server = server
         self._c = CexecCmd()
         self._checkRoot()
@@ -54,16 +57,26 @@ class ClbcBase(object):
             ver = self._c.cmd('uname -r')
         if arch == "":
             arch = self._c.cmd('uname -m')
-        self._checkBtf(ver, arch)
-        bpf_so = self._getSo(bpf, bpf_str, ver, arch)
 
-        self._loadSo(bpf_so)
-        self.maps = {}
-        self._loadMaps()
+        self._checkBtf(ver, arch)
+        if bpf.endswith(".bpf.c"):
+            bpf = bpf[:-6]
+        self._getSo(bpf, bpf_str, ver, arch)
 
     def __del__(self):
-        if self.__need_del:
-            self.__so.lbc_bpf_exit()
+        if self._so:
+            self._closeSo()
+
+    def _deinitSo(self):
+        self._checkSo()
+        self._so.lbc_bpf_exit()
+        self._need_deinit = False
+
+    def _closeSo(self):
+        if self._need_deinit:
+            self._deinitSo()
+        _ct.dlclose(self._so._handle)
+        self._so = None
 
     def _checkBtf(self, ver, arch):
         if os.path.exists('/sys/kernel/btf/vmlinux'):
@@ -79,12 +92,12 @@ class ClbcBase(object):
             with open(name, 'wb') as f:
                 f.write(segDecode(dRecv['btf']))
 
-    @staticmethod
-    def _closeSo(so):
-        _ct.dlclose(so._handle)
+    def _setupSoName(self, bpf):
+        return self._wPath + '/' + bpf + ".so"
 
     def _getSo(self, bpf, s, ver, arch):
-        bpf_so = self._wPath + '/' + bpf + ".so"
+        bpf_so = self._setupSoName(bpf)
+
         need = False
         if s == "":
             bpf_c = self._wPath + '/' + bpf + ".bpf.c"
@@ -96,7 +109,6 @@ class ClbcBase(object):
             need = self._checkStrCompile(s, bpf_so, ver, arch)
         if need:
             self._compileSo(s, bpf_so, ver, arch)
-        return bpf_so
 
     def _checkCCompile(self, bpf_c, bpf_so, ver, arch):
         cFlag = os.path.exists(bpf_c)
@@ -142,14 +154,11 @@ class ClbcBase(object):
     def _checkVer(self, bpf_so, ver, arch):
         """if should compile return ture, else return false"""
         try:
-            so = ct.CDLL(bpf_so)
+            self._so = ct.CDLL(bpf_so)
         except (OSError, FileNotFoundError):
             return True
-        so.lbc_get_map_types.restype = ct.c_char_p
-        so.lbc_get_map_types.argtypes = []
-        s = so.lbc_get_map_types()
-        soVer = json.loads(s)['kern_version']
-        self._closeSo(so)
+        soVer = self._loadDesc()['kern_version']
+        self._closeSo()
 
         soMajor = self._parseVer(soVer)
         hMajor = self._parseVer(ver)
@@ -158,14 +167,11 @@ class ClbcBase(object):
     def _checkHash(self, bpf_so, cHash):
         """if should compile return ture, else return false"""
         try:
-            so = ct.CDLL(bpf_so)
+            self._so = ct.CDLL(bpf_so)
         except (OSError, FileNotFoundError):
             return True
-        so.lbc_get_map_types.restype = ct.c_char_p
-        so.lbc_get_map_types.argtypes = []
-        s = so.lbc_get_map_types()
-        soHash = json.loads(s)['hash']
-        self._closeSo(so)
+        soHash = self._loadDesc()['hash']
+        self._closeSo()
         return not cHash == soHash
 
     def _checkRoot(self):
@@ -176,6 +182,8 @@ class ClbcBase(object):
 
     def _compileSo(self, s, bpf_so, ver, arch):
         cli = ClbcClient(server=self._server, ver=ver, arch=arch, port=LBC_COMPILE_PORT)
+        inc = ClbcInclude(self._wPath, self._incPath)
+        s = inc.parse(s)
         dRecv = cli.getC(s, self._env)
         if dRecv is None:
             raise Exception("receive error")
@@ -187,20 +195,43 @@ class ClbcBase(object):
             f.write(segDecode(dRecv['so']))
 
     def _loadSo(self, bpf_so):
-        self.__need_del = True
-        self.__so = ct.CDLL(bpf_so)
-        self.__so.lbc_bpf_init.restype = ct.c_int
-        self.__so.lbc_bpf_init.argtypes = [ct.c_int]
-        r = self.__so.lbc_bpf_init(self._logLevel)
+        self._so = ct.CDLL(bpf_so)
+
+    def _checkSo(self):
+        if not self._so:
+            raise InvalidArgsException("so not setup.")
+
+    def _loadDesc(self):
+        self._checkSo()
+        self._so.lbc_get_map_types.restype = ct.c_char_p
+        self._so.lbc_get_map_types.argtypes = []
+        desc = self._so.lbc_get_map_types()
+        return json.loads(desc)
+
+    def _initSo(self):
+        self._checkSo()
+        self._so.lbc_bpf_init.restype = ct.c_int
+        self._so.lbc_bpf_init.argtypes = [ct.c_int]
+        r = self._so.lbc_bpf_init(self._logLevel)
+        self._need_deinit = True
         if r != 0:
-            self.__need_del = False
             raise InvalidArgsException("so init failed")
 
+
+class ClbcBase(ClbcLoad):
+    def __init__(self, bpf, bpf_str="",
+                 server="pylcc.openanolis.cn",
+                 arch="", ver="", env=""):
+        super(ClbcBase, self).__init__(bpf, bpf_str, server, arch, ver,
+                                       env)
+        bpf_so = self._setupSoName(bpf)
+        self._loadSo(bpf_so)
+        self._initSo()
+        self.maps = {}
+        self._loadMaps()
+
     def _loadMaps(self):
-        self.__so.lbc_get_map_types.restype = ct.c_char_p
-        self.__so.lbc_get_map_types.argtypes = []
-        s = self.__so.lbc_get_map_types()
-        d = json.loads(s)['maps']
+        d = self._loadDesc()['maps']
         tDict = {'event': CmapsEvent,
                  'hash': CmapsHash,
                  'array': CmapsArray,
@@ -212,7 +243,7 @@ class ClbcBase(object):
         for k in d.keys():
             t = d[k]['type']
             if t in tDict:
-                self.maps[k] = tDict[t](self.__so, k, d[k])
+                self.maps[k] = tDict[t](self._so, k, d[k])
             else:
                 raise InvalidArgsException("bad type: %s, key: %s" % (t, k))
 
@@ -222,7 +253,6 @@ class ClbcBase(object):
             return self.maps[name].event(stream)
         except IndexError:
             return None
-
 
 if __name__ == "__main__":
     pass
