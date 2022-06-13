@@ -6,14 +6,19 @@ struct data_t {
     char c_comm[TASK_COMM_LEN];
     char p_comm[TASK_COMM_LEN];
 };
-
 LBC_PERF_OUTPUT(e_out, struct data_t, 128);
+LBC_HASH(pid_cnt, u32, u32, 1024);
 SEC("kprobe/wake_up_new_task")
 int j_wake_up_new_task(struct pt_regs *ctx)
 {
     struct task_struct* parent = (struct task_struct *)PT_REGS_PARM1(ctx);
-    struct data_t data = {};
+    u32 pid = BPF_CORE_READ(parent, pid);
+    u32 *pcnt, cnt;
 
+    pcnt =  bpf_map_lookup_elem(&pid_cnt, &pid);
+    cnt  = pcnt ? *pcnt + 1 : 1;
+    bpf_map_update_elem(&pid_cnt, &pid, &cnt, BPF_ANY);
+    struct data_t data = {};
     data.c_pid = bpf_get_current_pid_tgid() >> 32;
     bpf_get_current_comm(&data.c_comm, TASK_COMM_LEN);
     data.p_pid = BPF_CORE_READ(parent, pid);

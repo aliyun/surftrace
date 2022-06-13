@@ -4,6 +4,13 @@
 #include <dlfcn.h>
 #include <errno.h>
 
+#define PERF_MAX_STACK_DEPTH 127
+
+struct clcc_call_stack{
+    unsigned long stack[PERF_MAX_STACK_DEPTH];
+    int depth;
+};
+
 struct ksym {
     long addr;
     char *name;
@@ -38,7 +45,7 @@ struct clcc_struct{
     int  (*map_delete_elem)(int id, const void *key);
     int  (*map_get_next_key)(int id, const void *key, void *next_key);
     const char* (*get_map_types)(void);
-    struct ksym* (*ksym_search)(long addr);
+    struct ksym* (*ksym_search)(unsigned long addr);
 };
 
 inline int clcc_setup_syms(void* handle, struct clcc_struct *pclcc)
@@ -97,6 +104,40 @@ inline void clcc_deinit(struct clcc_struct* pclcc)
 
     free(pclcc);
     dlclose(handle);
+}
+
+inline int clcc_get_call_stack(int table_id,
+                               int stack_id,
+                               struct clcc_call_stack *pstack,
+                               struct clcc_struct *pclcc) {
+    int i;
+    int ret;
+
+    ret = pclcc->map_lookup_elem(table_id, &stack_id, &(pstack->stack[0]));
+    if (ret != 0) {
+        printf("get stack id %d return %d\n", stack_id, ret);
+        return 1;
+    }
+
+    pstack->depth = PERF_MAX_STACK_DEPTH;
+    for (i = 0; i < PERF_MAX_STACK_DEPTH; i ++) {
+        if (pstack->stack[i] == 0) {
+            pstack->depth = i;
+            break;
+        }
+    }
+    return 0;
+}
+
+inline void clcc_print_stack(struct clcc_call_stack *pstack,
+                             struct clcc_struct *pclcc){
+    int i;
+    struct ksym* sym;
+
+    for (i = 0; i < pstack->depth; i ++) {
+        sym = pclcc->ksym_search(pstack->stack[i]);
+        printf("\t0x%lx: %s+0x%lx\n", pstack->stack[i], sym->name, pstack->stack[i] - sym->addr);
+    }
 }
 
 #endif
