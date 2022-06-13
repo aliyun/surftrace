@@ -899,6 +899,7 @@ if __name__ == "__main__":
 ## 7.1 准备工作
 
 基本要求
+
 - 能力要求：熟悉c，libpf开发特性，
 - python2.7 或者python3，pylcc >=0.2.7，可以执行pip install -U pylcc
 - 环境要求：可以访问pylcc.openanolis.cn或自己建远程编译服务
@@ -944,10 +945,10 @@ struct clcc_struct* clcc_init(const char* so_path);
 /*
  * function name: clcc_deinit
  * description: release an so
- * arg1:  struct clcc_struct *p; mem will free this function.
+ * arg1:  struct clcc_struct *p;    struct clcc_struc will free in this function.
  * return: None
  */
-struct clcc_struct* clcc_deinit(const char* so_path);
+void clcc_deinit(struct clcc_struct *p);
 
 /*
  * function name: clcc_get_call_stack

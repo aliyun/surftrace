@@ -31,22 +31,100 @@ static const char * clcc_funcs[] = {
 };
 
 struct clcc_struct{
+    /*
+     * member: handle
+     * description: so file file handle pointer, it should not be modified or accessed.
+     */
     void* handle;
+    /*
+     * member: status
+     * description: reserved.
+     */
     int status;
+    /*
+     * member: init
+     * description: install libbpf programme,
+     * arg1: print level, 0~3. -1:do not print any thing.
+     * return: 0 if success.
+     */
     int  (*init)(int);
+     /*
+     * member: exit
+     * description: uninstall libbpf programme,
+     * return: None.
+     */
     void (*exit)(void);
+    /*
+     * member: get_maps_id
+     * description: get map id from map name which quote in LBC_XXX().
+     * arg1: event: map name which quote in LBC_XXX(), eg: LBC_PERF_OUTPUT(e_out, struct data_t, 128),  then arg is e_out.
+     * return: >=0, failed when < 0
+     */
     int  (*get_maps_id)(char* event);
+    /*
+     * member: set_event_cb
+     * description: set call back function for perf out event.
+     * arg1: event id, get from get_maps_id.
+     * arg2: callback function when event polled.
+     * arg3: lost callback function when event polled.
+     * return: 0 if success.
+     */
     int  (*set_event_cb)(int id,
                        void (*cb)(void *ctx, int cpu, void *data, unsigned int size),
                        void (*lost)(void *ctx, int cpu, unsigned long long cnt));
+    /*
+     * member: event_loop
+     * description: poll perf out put event, usually used in pairs with set_event_cb function.
+     * arg1: event id, get from get_maps_id.
+     * arg2: timeout， unit seconds. -1 nevet timeout.
+     * return: 0 if success.
+     */
     int  (*event_loop)(int id, int timeout);
+    /*
+     * member: map_lookup_elem
+     * description: lookup element by key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: value point.
+     * return: 0 if success.
+     */
     int  (*map_lookup_elem)(int id, const void *key, void *value);
-    int  (*map_lookup_and_delete_elem)(int id, const void *key, void *value);
+    /*
+     * member: map_lookup_and_delete_elem
+     * description: lookup element by key then delete key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: value point.
+     * return: 0 if success.
+     */
+    int  (* map_lookup_and_delete_elem)(int id, const void *key, void *value);
+    /*
+     * member: map_lookup_and_delete_elem
+     * description: lookup element by key then delete key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * return: 0 if success.
+     */
     int  (*map_delete_elem)(int id, const void *key);
+    /*
+     * member: map_get_next_key
+     * description: walk keys from maps.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: next key point.
+     * return: 0 if success.
+     */
     int  (*map_get_next_key)(int id, const void *key, void *next_key);
     const char* (*get_map_types)(void);
+    /*
+     * member: ksym_search
+     * description: get symbol from kernel addr.
+     * arg1: kernnel addr.
+     * return: symbol name and address information.
+     */
     struct ksym* (*ksym_search)(unsigned long addr);
 };
+
 
 inline int clcc_setup_syms(void* handle, struct clcc_struct *pclcc)
 {
