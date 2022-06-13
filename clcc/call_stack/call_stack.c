@@ -40,7 +40,7 @@ void event_run(struct clcc_struct* pclcc) {
 }
 
 int main(int argc,char *argv[]) {
-    struct clcc_struct* pclcc = clcc_init("./call_stack.so");
+    struct clcc_struct* pclcc = clcc_init("./"SO_NAME);
 
     if (pclcc == NULL) {
         printf("open so file failed.\n");

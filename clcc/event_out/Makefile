@@ -9,9 +9,9 @@ CC=gcc
 CC_FLAG=-Wall -g
 
 PRG=event_out
-BPF_FILE=event_out.bpf.c
-BFP_SO=event_out.so
-OBJ=event_out.o
+OBJ=$(PRG).o
+BPF_FILE=$(PRG).bpf.c
+BFP_SO=$(PRG).so
 
 $(PRG): $(BFP_SO) $(OBJ)
 	$(CC) $(LIB) -o $@ $(OBJ)
@@ -20,7 +20,7 @@ $(BFP_SO): $(BPF_FILE)
 	$(LCC) -f $(BPF_FILE)
 
 %.o: %.c
-	$(CC) $(CC_FLAG) $(INC) -c $< -o $@
+	$(CC) $(CC_FLAG) $(INC) -c $< -o $@ -DSO_NAME=\"$(BFP_SO)\"
 
 .PRONY:clean
 clean:

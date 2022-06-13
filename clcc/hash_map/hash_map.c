@@ -54,7 +54,7 @@ static void stop(int signo){
 }
 
 int main(int argc,char *argv[]) {
-    struct clcc_struct* pclcc = clcc_init("./hash_map.so");
+    struct clcc_struct* pclcc = clcc_init("./"SO_NAME);
 
     if (pclcc == NULL) {
         printf("open so file failed.\n");
