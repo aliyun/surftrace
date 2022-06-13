@@ -66,6 +66,12 @@ inline int clcc_setup_syms(void* handle, struct clcc_struct *pclcc)
     return 0;
 }
 
+/*
+ * function name: clcc_init
+ * description: load an so
+ * arg1: so path to load
+ * return: struct clcc_struct *
+ */
 inline struct clcc_struct* clcc_init(const char* so_path)
 {
     void *handle = NULL;
@@ -98,6 +104,12 @@ open_failed:
     return NULL;
 }
 
+/*
+ * function name: clcc_deinit
+ * description: release an so
+ * arg1:  struct clcc_struct *p; setup from clcc_init function, mem will be free in this function.
+ * return: None
+ */
 inline void clcc_deinit(struct clcc_struct* pclcc)
 {
     void *handle = pclcc->handle;
@@ -106,6 +118,15 @@ inline void clcc_deinit(struct clcc_struct* pclcc)
     dlclose(handle);
 }
 
+/*
+ * function name: clcc_get_call_stack
+ * description:  get call stack from table and stack id
+ * arg1:  table id: from struct clcc_struct get_maps_id function.
+ * arg2: stack_id: from bpf kernel bpf_get_stackid function.
+ * arg3: pstack:  struct clcc_call_stack, should be alloced at first, use in clcc_print_stack
+ * arg4: pclcc: setup from clcc_init function
+ * return: 0 if success.
+ */
 inline int clcc_get_call_stack(int table_id,
                                int stack_id,
                                struct clcc_call_stack *pstack,
@@ -129,6 +150,13 @@ inline int clcc_get_call_stack(int table_id,
     return 0;
 }
 
+/*
+ * function name: clcc_print_stack
+ * description:  print call stack
+ * arg1: pstack:  struct clcc_call_stack, stack to print, setup from clcc_get_call_stack.
+ * arg2: pclcc: setup from clcc_init function
+ * return: None.
+ */
 inline void clcc_print_stack(struct clcc_call_stack *pstack,
                              struct clcc_struct *pclcc){
     int i;

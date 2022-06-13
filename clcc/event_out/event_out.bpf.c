@@ -1,4 +1,5 @@
 #include "lbc.h"
+
 #define TASK_COMM_LEN 16
 struct data_t {
     u32 c_pid;
@@ -8,6 +9,7 @@ struct data_t {
 };
 
 LBC_PERF_OUTPUT(e_out, struct data_t, 128);
+
 SEC("kprobe/wake_up_new_task")
 int j_wake_up_new_task(struct pt_regs *ctx)
 {
