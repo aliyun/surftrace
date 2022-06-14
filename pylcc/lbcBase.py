@@ -34,7 +34,9 @@ class ClbcLoad(object):
                  server="pylcc.openanolis.cn",
                  arch="", ver="", env="",
                  workPath=None, incPath=None,
-                 logLevel=-1,):
+                 logLevel=-1, btf=True,
+                 opt="so",
+                 ):
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
         if "LBC_LOGLEVEL" in os.environ:
@@ -49,7 +51,8 @@ class ClbcLoad(object):
         self._need_deinit = False
         self._server = server
         self._c = CexecCmd()
-        self._checkRoot()
+        if btf:
+            self._checkRoot()
         self._env = env
         self._logLevel = logLevel
 
@@ -58,10 +61,14 @@ class ClbcLoad(object):
         if arch == "":
             arch = self._c.cmd('uname -m')
 
-        self._checkBtf(ver, arch)
+        if btf:
+            self._checkBtf(ver, arch)
         if bpf.endswith(".bpf.c"):
             bpf = bpf[:-6]
-        self._getSo(bpf, bpf_str, ver, arch)
+        if opt == "so":
+            self._getSo(bpf, bpf_str, ver, arch)
+        elif opt == "obj":
+            self._compileObj(bpf, bpf_str, ver, arch)
 
     def __del__(self):
         if self._so:
@@ -180,10 +187,13 @@ class ClbcLoad(object):
         if line != "root":
             raise RootRequiredException('this app need run as root')
 
+    def _combineSource(self, s):
+        inc = ClbcInclude(self._wPath, self._incPath)
+        return inc.parse(s)
+
     def _compileSo(self, s, bpf_so, ver, arch):
         cli = ClbcClient(server=self._server, ver=ver, arch=arch, port=LBC_COMPILE_PORT)
-        inc = ClbcInclude(self._wPath, self._incPath)
-        s = inc.parse(s)
+        s = self._combineSource(s)
         dRecv = cli.getC(s, self._env)
         if dRecv is None:
             raise Exception("receive error")
@@ -193,6 +203,27 @@ class ClbcLoad(object):
         print("remote server compile success.")
         with open(bpf_so, 'wb') as f:
             f.write(segDecode(dRecv['so']))
+
+    def _compileObj(self, bpf, bpf_str, ver, arch):
+        if bpf_str == "":
+            cName = bpf + ".bpf.c"
+            if not os.path.exists(cName):
+                raise InvalidArgsException("file %s is not exist." % cName)
+            with open(cName, 'r') as f:
+                bpf_str = f.read()
+
+        objName = bpf + ".bpf.o"
+        cli = ClbcClient(server=self._server, ver=ver, arch=arch, port=LBC_COMPILE_PORT)
+        s = self._combineSource(bpf_str)
+        dRecv = cli.getObj(s, self._env)
+        if dRecv is None:
+            raise Exception("receive error")
+        if dRecv['obj'] is None:
+            print("compile failed, log is:\n%s" % dRecv['clog'])
+            raise InvalidArgsException("compile failed.")
+        print("remote server compile success.")
+        with open(objName, 'wb') as f:
+            f.write(segDecode(dRecv['obj']))
 
     def _loadSo(self, bpf_so):
         self._so = ct.CDLL(bpf_so)

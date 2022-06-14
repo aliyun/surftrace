@@ -1,32 +1,25 @@
 # -*- coding: utf-8 -*-
-# cython:language_level=3
 """
 -------------------------------------------------
-   File Name：     setup
+   File Name：     setupCoolbpf
    Description :
    Author :       liaozhaoyan
-   date：          2022/1/14
+   date：          2022/6/14
 -------------------------------------------------
    Change Activity:
-                   2022/1/14:
+                   2022/6/14:
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.7.3'
+VERSION = '0.1.0'
 
-import sys
-from setuptools import setup, find_packages
+from setuptools import setup
 
-if sys.version_info.major == 2:
-    reqLists = ["certifi==2017.4.17", "pip==20.3.4", "requests"]
-else:
-    reqLists = ["requests"]
-
-setup(name='surftrace',
+setup(name='coolbpf',
       version=VERSION,
-      description="surftrace is a tool that allows you to surf the linux kernel.",
-      long_description='surftrace is a tool that allows you to surf the linux kernel.',
+      description="cool libbpf compile collections",
+      long_description='cool libbpf compile collections.',
       classifiers=["Topic :: System :: Operating System Kernels :: Linux",
                    "Programming Language :: Python",
                    "Programming Language :: Python :: 2",
@@ -43,19 +36,19 @@ setup(name='surftrace',
       keywords='linux kernel trace',
       author='liaozhaoyan',
       author_email='zhaoyan.liao@linux.alibaba.com',
-      url="https://gitee.com/anolis/surftrace",
+      url="https://github.com/aliyun/coolbpf",
       license='MIT',
-      packages=["surftrace"],
+      packages=["coolbpf"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=reqLists,
+      install_requires=['surftrace>=0.7.3', "pylcc>=0.2.8"],
       entry_points={
           'console_scripts': [
-              "surftrace = surftrace.surftrace:main",
-              "kobuild = surftrace.kobuild:main",
+              "coolbpf = coolbpf.coolbpf:main",
           ]
       }
       )
 
 if __name__ == "__main__":
     pass
+

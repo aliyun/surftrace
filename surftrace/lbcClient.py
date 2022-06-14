@@ -144,6 +144,14 @@ class ClbcClient(CbaseParser):
                  'env': env}
         return self._post(dSend, tmo=30)
 
+    def getObj(self, code, env):
+        dSend = {"cmd": "obj",
+                 'code': code,
+                 'ver': self._ver,
+                 'arch': self._arch,
+                 'env': env}
+        return self._post(dSend, tmo=30)
+
     def koBuild(self, kos):
         if len(kos) < 1:
             raise ValueError("no file to send.")

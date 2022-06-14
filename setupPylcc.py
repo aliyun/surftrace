@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.2.7'
+VERSION = '0.2.8'
 
 from setuptools import setup
 

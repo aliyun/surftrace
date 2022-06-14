@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 -------------------------------------------------
-   File Name：     clcc
+   File Name：     coolbpf
    Description :
    Author :       liaozhaoyan
-   date：          2022/6/12
+   date：          2022/6/14
 -------------------------------------------------
    Change Activity:
-                   2022/6/12:
+                   2022/6/14:
 -------------------------------------------------
 """
-__author__ = 'liaozhaoyan'
-
-from .lbcBase import ClbcLoad
+from pylcc.lbcBase import ClbcLoad
 import argparse
 
 examples = """examples:"""

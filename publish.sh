@@ -19,3 +19,9 @@ cp setupPylcc.py pub/setup.py
 cd pub/
 python setup.py sdist
 cd ../
+
+cp -r coolbpf/ pub/
+cp setupCoolbpf.py pub/setup.py
+cd pub/
+python setup.py sdist
+cd ../

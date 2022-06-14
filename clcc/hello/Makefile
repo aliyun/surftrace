@@ -4,7 +4,7 @@
 INC= -I../include
 LIB= -lpthread -ldl
 
-LCC=clcc
+LCC=coolbpf
 CC=gcc
 CC_FLAG=-Wall -g
 
