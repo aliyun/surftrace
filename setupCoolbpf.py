@@ -12,7 +12,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.1.0'
+VERSION = '0.1.1'
 
 from setuptools import setup
 
@@ -41,7 +41,7 @@ setup(name='coolbpf',
       packages=["coolbpf"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=['surftrace>=0.7.3', "pylcc>=0.2.8"],
+      install_requires=['surftrace>=0.7.3', "pylcc>=0.2.9"],
       entry_points={
           'console_scripts': [
               "coolbpf = coolbpf.coolbpf:main",

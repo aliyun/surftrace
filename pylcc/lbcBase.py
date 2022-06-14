@@ -24,7 +24,7 @@ from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsArray, \
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
 from surftrace.lbcClient import ClbcClient, segDecode
-from lbcInclude import ClbcInclude
+from pylcc.lbcInclude import ClbcInclude
 
 LBC_COMPILE_PORT = 7655
 
