@@ -62,7 +62,7 @@ int main(int argc,char *argv[]) {
     }
 
     signal(SIGINT, stop);
-    pclcc->init(-1);
+    pclcc->init(-1, 1);
     printf("The program starts executing and will exit after 10 seconds.\n");
     event_run(pclcc);
 

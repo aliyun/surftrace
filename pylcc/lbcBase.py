@@ -69,6 +69,8 @@ class ClbcLoad(object):
             self._getSo(bpf, bpf_str, ver, arch)
         elif opt == "obj":
             self._compileObj(bpf, bpf_str, ver, arch)
+        elif opt == "combine":
+            pass
 
     def __del__(self):
         if self._so:
@@ -102,18 +104,22 @@ class ClbcLoad(object):
     def _setupSoName(self, bpf):
         return self._wPath + '/' + bpf + ".so"
 
+    def _setUpCode(self, bpf, s):
+        if s == "":
+            bpf_c = self._wPath + '/' + bpf + ".bpf.c"
+            if os.path.exists(bpf_c):
+                with open(bpf_c, "r") as f:
+                    s = f.read()
+
     def _getSo(self, bpf, s, ver, arch):
         bpf_so = self._setupSoName(bpf)
 
-        need = False
         if s == "":
             bpf_c = self._wPath + '/' + bpf + ".bpf.c"
-            if self._checkCCompile(bpf_c, bpf_so, ver, arch):
-                with open(bpf_c, 'r') as f:
+            if os.path.exists(bpf_c):
+                with open(bpf_c, "r") as f:
                     s = f.read()
-                need = True
-        else:
-            need = self._checkStrCompile(s, bpf_so, ver, arch)
+        need = self._checkStrCompile(s, bpf_so, ver, arch)
         if need:
             self._compileSo(s, bpf_so, ver, arch)
 
@@ -144,7 +150,10 @@ class ClbcLoad(object):
         oFlag = os.path.exists(bpf_so)
         if not oFlag:  # only string
             return True
+        elif s == "":  # only so, no string.
+            return False
         else:  # both bpf.c and bo, check hash and version
+            s = self._combineSource(s)
             s += self._env
             if sys.version_info.major >= 3:
                 cHash = hashlib.sha256(s.encode()).hexdigest()
@@ -193,7 +202,6 @@ class ClbcLoad(object):
 
     def _compileSo(self, s, bpf_so, ver, arch):
         cli = ClbcClient(server=self._server, ver=ver, arch=arch, port=LBC_COMPILE_PORT)
-        s = self._combineSource(s)
         dRecv = cli.getC(s, self._env)
         if dRecv is None:
             raise Exception("receive error")
@@ -239,27 +247,61 @@ class ClbcLoad(object):
         desc = self._so.lbc_get_map_types()
         return json.loads(desc)
 
-    def _initSo(self):
+    def _initSo(self, attach=1):
         self._checkSo()
         self._so.lbc_bpf_init.restype = ct.c_int
-        self._so.lbc_bpf_init.argtypes = [ct.c_int]
-        r = self._so.lbc_bpf_init(self._logLevel)
-        self._need_deinit = True
+        self._so.lbc_bpf_init.argtypes = [ct.c_int, ct.c_int]
+        r = self._so.lbc_bpf_init(self._logLevel, attach)
         if r != 0:
             raise InvalidArgsException("so init failed")
+        self._need_deinit = True
 
 
 class ClbcBase(ClbcLoad):
     def __init__(self, bpf, bpf_str="",
                  server="pylcc.openanolis.cn",
-                 arch="", ver="", env=""):
+                 arch="", ver="", env="",
+                 attach=1,
+                 ):
         super(ClbcBase, self).__init__(bpf, bpf_str, server, arch, ver,
                                        env)
         bpf_so = self._setupSoName(bpf)
         self._loadSo(bpf_so)
-        self._initSo()
+        self._initSo(attach)
         self.maps = {}
         self._loadMaps()
+
+    def _setupAttatchs(self):
+        #   int lbc_attach_perf_event(const char* func, int pfd)
+        self._so.lbc_attach_perf_event.restype = ct.c_int
+        self._so.lbc_attach_perf_event.argtypes = [ct.c_char_p, ct.c_int]
+        #   int lbc_attach_kprobe(const char* func, const char* sym)
+        self._so.lbc_attach_kprobe.restype = ct.c_int
+        self._so.lbc_attach_kprobe.argtypes = [ct.c_char_p, ct.c_char_p]
+        #   int lbc_attach_kretprobe(const char* func, const char* sym)
+        self._so.lbc_attach_kretprobe.restype = ct.c_int
+        self._so.lbc_attach_kretprobe.argtypes = [ct.c_char_p, ct.c_char_p]
+        #    int lbc_attach_uprobe(const char* func, int pid, const char *binary_path, unsigned long func_offset)
+        self._so.lbc_attach_uprobe.restype = ct.c_int
+        self._so.lbc_attach_uprobe.argtypes = [ct.c_char_p, ct.c_int, ct.c_char_p, ct.c_ulong]
+        #    int lbc_attach_uretprobe(const char* func, int pid, const char *binary_path, unsigned long func_offset)
+        self._so.lbc_attach_uretprobe.restype = ct.c_int
+        self._so.lbc_attach_uretprobe.argtypes = [ct.c_char_p, ct.c_int, ct.c_char_p, ct.c_ulong]
+        #   int lbc_attach_tracepoint(const char* func, const char *tp_category, const char *tp_name)
+        self._so.lbc_attach_tracepoint.restype = ct.c_int
+        self._so.lbc_attach_tracepoint.argtypes = [ct.c_char_p, ct.c_char_p, ct.c_char_p]
+        #   int lbc_attach_raw_tracepoint(const char* func, const char *tp_name)
+        self._so.lbc_attach_raw_tracepoint.restype = ct.c_int
+        self._so.lbc_attach_raw_tracepoint.argtypes = [ct.c_char_p, ct.c_char_p]
+        #   int lbc_attach_cgroup(const char* func, int cgroup_fd)
+        self._so.lbc_attach_cgroup.restype = ct.c_int
+        self._so.lbc_attach_cgroup.argtypes = [ct.c_char_p, ct.c_int]
+        #   int lbc_attach_netns(const char* func, int netns_fd)
+        self._so.lbc_attach_netns.restype = ct.c_int
+        self._so.lbc_attach_netns.argtypes = [ct.c_char_p, ct.c_int]
+        #   int lbc_attach_xdp(const char* func, int ifindex)
+        self._so.lbc_attach_xdp.restype = ct.c_int
+        self._so.lbc_attach_xdp.argtypes = [ct.c_char_p, ct.c_int]
 
     def _loadMaps(self):
         d = self._loadDesc()['maps']
@@ -284,6 +326,52 @@ class ClbcBase(ClbcLoad):
             return self.maps[name].event(stream)
         except IndexError:
             return None
+
+    def attachKprobe(self, function, symbol):
+        res = self._so.lbc_attach_kprobe(function, symbol)
+        if res != 0:
+            raise InvalidArgsException("attach %s to kprobe %s failed." % (function, symbol))
+
+    def attachKretprobe(self, function, symbol):
+        res = self._so.lbc_attach_kretprobe(function, symbol)
+        if res != 0:
+            raise InvalidArgsException("attach %s to kretprobe %s failed." % (function, symbol))
+
+    def attachUprobe(self, function, pid, binaryPath, offset=0):
+        res = self._so.lbc_attach_uprobe(function, pid, binaryPath, offset)
+        if res != 0:
+            raise InvalidArgsException("attach %s to uprobe %s failed." % (function, binaryPath))
+
+    def attachUretprobe(self, function, pid, binaryPath, offset=0):
+        res = self._so.lbc_attach_uretprobe(function, pid, binaryPath, offset)
+        if res != 0:
+            raise InvalidArgsException("attach %s to uretprobe %s failed." % (function, binaryPath))
+
+    def attachTracepoint(self, function, category, name):
+        res = self._so.lbc_attach_tracepoint(function, category, name)
+        if res != 0:
+            raise InvalidArgsException("attach %s to trace point %s failed." % (function, name))
+
+    def attachRawTracepoint(self, function, name):
+        res = self._so.lbc_attach_raw_tracepoint(function, name)
+        if res != 0:
+            raise InvalidArgsException("attach %s to raw trace point %s failed." % (function, name))
+
+    def attachCgroup(self, function, fd):
+        res = self._so.lbc_attach_cgroup(function, fd)
+        if res != 0:
+            raise InvalidArgsException("attach %s to cgroup %d failed." % (function, fd))
+
+    def attachNetns(self, function, fd):
+        res = self._so.lbc_attach_netns(function, fd)
+        if res != 0:
+            raise InvalidArgsException("attach %s to netns %d failed." % (function, fd))
+
+    def attachXdp(self, function, ifindex):
+        res = self._so.lbc_attach_xdp(function, ifindex)
+        if res != 0:
+            raise InvalidArgsException("attach %s to xdp %d failed." % (function, ifindex))
+
 
 if __name__ == "__main__":
     pass

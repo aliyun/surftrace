@@ -865,6 +865,59 @@ if __name__ == "__main__":
 ### 6.3.8 编译宏定义：
 &emsp;可以参考6.3.7的方法传入编译宏，这里不再举例。
 
+### 6.3.8 attach probe:
+
+```python
+import time
+from pylcc.lbcBase import ClbcBase
+
+bpfPog = r"""
+#include "lbc.h"
+
+SEC("kprobe/finish_task_switch")
+int j_wake_up_new_task2(struct pt_regs *ctx)
+{
+    struct task_struct* parent = (struct task_struct *)PT_REGS_PARM1(ctx);
+
+    bpf_printk("hello lcc2, parent: %d\n", _(parent->tgid));
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+"""
+
+
+class Cattach(ClbcBase):
+    def __init__(self):
+        super(Cattach, self).__init__("attach", bpf_str=bpfPog, attach=0)
+        self.attachKprobe("j_wake_up_new_task2", "wake_up_new_task")
+        while True:
+            time.sleep(1)
+
+
+if __name__ == "__main__":
+    attach = Cattach()
+    pass
+```
+
+1. 构造bpf的时候，配置attach=0，这样 j_wake_up_new_task2 就不会attach 到 finish_task_switch kprobe上去；
+2. attach 如果不配置，默认会 attach 到 finish_task_switch  上；
+
+&emsp;attach api 列表如下：
+
+```
+def attachKprobe(self, function, symbol):
+def attachKretprobe(self, function, symbol):
+def attachUprobe(self, function, pid, binaryPath, offset=0):
+def attachUretprobe(self, function, pid, binaryPath, offset=0):
+def attachTracepoint(self, function, category, name):
+def attachRawTracepoint(self, function, name):
+def attachCgroup(self, function, fd):
+def attachNetns(self, function, fd):
+def attachXdp(self, function, ifindex):
+```
+
+
 ## 6.4 pylcc 与 bcc 对比性能优势
 
 &emsp;由于bcc 库内部集成了庞大的 LLVM/Clang 库，使其在使用过程中会遇到一些问题：
@@ -896,16 +949,44 @@ if __name__ == "__main__":
 
 # 7 clcc
 &emsp;clcc与pylcc原理基本一致，不同的是开发语言为C语言，属于静态语言版本，适用于bpf.c程序比较固定的场景
+
 ## 7.1 准备工作
 
 基本要求
 
 - 能力要求：熟悉c，libpf开发特性，
-- python2.7 或者python3，pylcc >=0.2.7，可以执行pip install -U pylcc
+- python2.7 或者python3，coolbpf >=0.1.1，可以执行pip install -U coolbpf
 - 环境要求：可以访问pylcc.openanolis.cn或自己建远程编译服务
 - 编译要求：本地已安装gcc/make
 
-## 7.2 验证过程
+## 7.2 coolbpf 命令说明
+
+```bash
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  set file to compile.
+  -e ENV, --env ENV     set compile env.
+  -a ARCH, --arch ARCH  set architecture.
+  -v VER, --version VER
+                        set kernel version.
+  -i INC, --include INC
+                        set include path.
+  -o, --obj             compile object file only.
+```
+&emsp;如要将hello.bpf.c 编译成hello.so，执行：
+
+```bash
+coolbpf -f hello.bpf.c
+```
+
+&emsp;编译成 hello.bpf.o，执行：
+
+```bash
+coolbpf -f hello.bpf.c -o
+```
+
+
+## 7.3 验证过程
 &emsp;参考6.3的例程，先clone 代码 make：
 
 ```bash
@@ -916,22 +997,22 @@ make
 
 &emsp;执行完编译后，就能编译出对应的可执行程序和对应的so，可以在对应路径下逐一验证，功能实现与pylcc实现一致。
 
-### 7.2.1 hello
+### 7.3.1 hello
 &emsp;实现和验证流程参考 pylcc hello的验证，实现了hello world 打印功能
 
-### 7.2.2 event_out
+### 7.3.2 event_out
 &emsp;实现和验证流程参考 pylcc eventOut的验证，实现了往用户态吐数据功能
 
-### 7.2.3 hash_map
+### 7.3.3 hash_map
 &emsp;实现和验证流程参考 pylcc hashMaps的验证，实现了maps数据读取功能
 
-### 7.2.3 call_stack
+### 7.3.3 call_stack
 &emsp;实现和验证流程参考 pylcc callStack的验证，实现了打印内核调用栈功能
 
-## 7.3 clcc 头文件说明
+## 7.4 clcc 头文件说明
 &emsp;头文件clcc.h保存在 include 路径下， 实现了so加载的主要功能，主要功能如下：
 
-### 7.3.1 直接API
+### 7.4.1 直接API
 
 ```C
 /*
@@ -977,7 +1058,7 @@ void clcc_print_stack(struct clcc_call_stack *pstack,
                                                          
 ```
 
-### 7.3.2 结构体API
+### 7.4.2 结构体API
 &emsp; struct clcc_struct 是 clcc 最重要的结构体，封装libbpf的主要功能，结构定义如下：
 
 ```C
@@ -994,14 +1075,15 @@ struct clcc_struct{
     int status;
     /*
      * member: init
-     * description: install libbpf programme, 
+     * description: install libbpf programme,
      * arg1: print level, 0~3. -1:do not print any thing.
+     * arg2: attach, 0: do not attach, !0: attach
      * return: 0 if success.
      */
-    int  (*init)(int);
+    int  (*init)(int log_level, int attach);
      /*
      * member: exit
-     * description: uninstall libbpf programme, 
+     * description: uninstall libbpf programme,
      * return: None.
      */
     void (*exit)(void);
@@ -1009,7 +1091,7 @@ struct clcc_struct{
      * member: get_maps_id
      * description: get map id from map name which quote in LBC_XXX().
      * arg1: event: map name which quote in LBC_XXX(), eg: LBC_PERF_OUTPUT(e_out, struct data_t, 128),  then arg is e_out.
-     * return: >=0, failed when < 0 
+     * return: >=0, failed when < 0
      */
     int  (*get_maps_id)(char* event);
     /*
@@ -1029,7 +1111,7 @@ struct clcc_struct{
      * arg1: event id, get from get_maps_id.
      * arg2: timeout， unit seconds. -1 nevet timeout.
      * return: 0 if success.
-     */    
+     */
     int  (*event_loop)(int id, int timeout);
     /*
      * member: map_lookup_elem
@@ -1038,8 +1120,17 @@ struct clcc_struct{
      * arg2: key point.
      * arg3: value point.
      * return: 0 if success.
-     */    
+     */
     int  (*map_lookup_elem)(int id, const void *key, void *value);
+    /*
+     * member: map_lookup_elem_flags
+     * description: lookup element by key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: value point.
+     * return: 0 if success.
+     */
+    int  (*map_lookup_elem_flags)(int id, const void *key, void *value, unsigned long int);
     /*
      * member: map_lookup_and_delete_elem
      * description: lookup element by key then delete key.
@@ -1047,16 +1138,25 @@ struct clcc_struct{
      * arg2: key point.
      * arg3: value point.
      * return: 0 if success.
-     */    
-    int  (* map_delete_elem)(int id, const void *key, void *value);
+     */
+    int  (*map_lookup_and_delete_elem)(int id, const void *key, void *value);
     /*
-     * member: map_lookup_and_delete_elem
+     * member: map_delete_elem
      * description: lookup element by key then delete key.
      * arg1: event id, get from get_maps_id.
      * arg2: key point.
      * return: 0 if success.
-     */    
+     */
     int  (*map_delete_elem)(int id, const void *key);
+    /*
+     * member: map_update_elem
+     * description: update element by key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: value point.
+     * return: 0 if success.
+     */
+    int  (*map_update_elem)(int id, const void *key, void *value);
     /*
      * member: map_get_next_key
      * description: walk keys from maps.
@@ -1064,15 +1164,100 @@ struct clcc_struct{
      * arg2: key point.
      * arg3: next key point.
      * return: 0 if success.
-     */   
+     */
     int  (*map_get_next_key)(int id, const void *key, void *next_key);
+    /*
+     * member: attach_perf_event
+     * description: attach perf event.
+     * arg1: function name in bpf.c.
+     * arg2: perf event id.
+     * return: 0 if success.
+     */
+    int  (*attach_perf_event)(const char* func, int pfd);
+    /*
+     * member: attach_kprobe
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: kprobe symbol.
+     * return: 0 if success.
+     */
+    int  (*attach_kprobe)(const char* func, const char* sym);
+    /*
+     * member: attach_kretprobe
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: kprobe symbol.
+     * return: 0 if success.
+     */
+    int  (*attach_kretprobe)(const char* func, const char* sym);
+    /*
+     * member: attach_uprobe
+     * description: attach uprobe.
+     * arg1: function name in bpf.c.
+     * arg2: task pid
+     * arg3: binary_path.
+     * arg4: offset.
+     * return: 0 if success.
+     */
+    int  (*attach_uprobe)(const char* func, int pid, const char *binary_path, unsigned long func_offset);
+    /*
+     * member: attach_uretprobe
+     * description: attach uretprobe.
+     * arg1: function name in bpf.c.
+     * arg2: task pid
+     * arg3: binary_path.
+     * arg4: offset.
+     * return: 0 if success.
+     */
+    int  (*attach_uretprobe)(const char* func, int pid, const char *binary_path, unsigned long func_offset);
+    /*
+     * member: attach_tracepoint
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: tp_category.
+     * arg3: tp_name.
+     * return: 0 if success.
+     */
+    int  (*attach_tracepoint)(const char* func, const char *tp_category, const char *tp_name);
+    /*
+     * member: attach_raw_tracepoint
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: tp_name.
+     * return: 0 if success.
+     */
+    int  (*attach_raw_tracepoint)(const char* func, const char *tp_name);
+    /*
+     * member: attach_cgroup
+     * description: attach cgroup.
+     * arg1: function name in bpf.c.
+     * arg2: cgroup_fd.
+     * return: 0 if success.
+     */
+    int  (*attach_cgroup)(const char* func, int cgroup_fd);
+    /*
+     * member: attach_netns
+     * description: attach netns.
+     * arg1: function name in bpf.c.
+     * arg2: netns.
+     * return: 0 if success.
+     */
+    int  (*attach_netns)(const char* func, int netns);
+    /*
+     * member: attach_xdp
+     * description: attach xdp.
+     * arg1: function name in bpf.c.
+     * arg2: ifindex.
+     * return: 0 if success.
+     */
+    int  (*attach_xdp)(const char* func, int ifindex);
     const char* (*get_map_types)(void);
     /*
      * member: ksym_search
      * description: get symbol from kernel addr.
      * arg1: kernnel addr.
      * return: symbol name and address information.
-     */   
+     */
     struct ksym* (*ksym_search)(unsigned long addr);
 };
 ```

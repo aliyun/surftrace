@@ -36,7 +36,7 @@ def main():
         parser.print_help()
         raise ValueError("need to set **.bpf.c file to compile.")
     if "/" in args.file:
-        raise ValueError("need to set **.bpf.c file to compile.")
+        raise ValueError("The file name cannot contain a directory(/).")
     if args.obj:
         opt = "obj"
     else:

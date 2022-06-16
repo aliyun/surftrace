@@ -23,9 +23,21 @@ static const char * clcc_funcs[] = {
     "lbc_set_event_cb",
     "lbc_event_loop",
     "lbc_map_lookup_elem",
+    "lbc_map_lookup_elem_flags",
     "lbc_map_lookup_and_delete_elem",
     "lbc_map_delete_elem",
+    "lbc_map_update_elem",
     "lbc_map_get_next_key",
+    "lbc_attach_perf_event",
+    "lbc_attach_kprobe",
+    "lbc_attach_kretprobe",
+    "lbc_attach_uprobe",
+    "lbc_attach_uretprobe",
+    "lbc_attach_tracepoint",
+    "lbc_attach_raw_tracepoint",
+    "lbc_attach_cgroup",
+    "lbc_attach_netns",
+    "lbc_attach_xdp",
     "lbc_get_map_types",
     "ksym_search",
 };
@@ -45,9 +57,10 @@ struct clcc_struct{
      * member: init
      * description: install libbpf programme,
      * arg1: print level, 0~3. -1:do not print any thing.
+     * arg2: attach, 0: do not attach, !0: attach
      * return: 0 if success.
      */
-    int  (*init)(int);
+    int  (*init)(int log_level, int attach);
      /*
      * member: exit
      * description: uninstall libbpf programme,
@@ -90,6 +103,15 @@ struct clcc_struct{
      */
     int  (*map_lookup_elem)(int id, const void *key, void *value);
     /*
+     * member: map_lookup_elem_flags
+     * description: lookup element by key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: value point.
+     * return: 0 if success.
+     */
+    int  (*map_lookup_elem_flags)(int id, const void *key, void *value, unsigned long int);
+    /*
      * member: map_lookup_and_delete_elem
      * description: lookup element by key then delete key.
      * arg1: event id, get from get_maps_id.
@@ -97,15 +119,24 @@ struct clcc_struct{
      * arg3: value point.
      * return: 0 if success.
      */
-    int  (* map_lookup_and_delete_elem)(int id, const void *key, void *value);
+    int  (*map_lookup_and_delete_elem)(int id, const void *key, void *value);
     /*
-     * member: map_lookup_and_delete_elem
+     * member: map_delete_elem
      * description: lookup element by key then delete key.
      * arg1: event id, get from get_maps_id.
      * arg2: key point.
      * return: 0 if success.
      */
     int  (*map_delete_elem)(int id, const void *key);
+    /*
+     * member: map_update_elem
+     * description: update element by key.
+     * arg1: event id, get from get_maps_id.
+     * arg2: key point.
+     * arg3: value point.
+     * return: 0 if success.
+     */
+    int  (*map_update_elem)(int id, const void *key, void *value);
     /*
      * member: map_get_next_key
      * description: walk keys from maps.
@@ -115,6 +146,91 @@ struct clcc_struct{
      * return: 0 if success.
      */
     int  (*map_get_next_key)(int id, const void *key, void *next_key);
+    /*
+     * member: attach_perf_event
+     * description: attach perf event.
+     * arg1: function name in bpf.c.
+     * arg2: perf event id.
+     * return: 0 if success.
+     */
+    int  (*attach_perf_event)(const char* func, int pfd);
+    /*
+     * member: attach_kprobe
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: kprobe symbol.
+     * return: 0 if success.
+     */
+    int  (*attach_kprobe)(const char* func, const char* sym);
+    /*
+     * member: attach_kretprobe
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: kprobe symbol.
+     * return: 0 if success.
+     */
+    int  (*attach_kretprobe)(const char* func, const char* sym);
+    /*
+     * member: attach_uprobe
+     * description: attach uprobe.
+     * arg1: function name in bpf.c.
+     * arg2: task pid
+     * arg3: binary_path.
+     * arg4: offset.
+     * return: 0 if success.
+     */
+    int  (*attach_uprobe)(const char* func, int pid, const char *binary_path, unsigned long func_offset);
+    /*
+     * member: attach_uretprobe
+     * description: attach uretprobe.
+     * arg1: function name in bpf.c.
+     * arg2: task pid
+     * arg3: binary_path.
+     * arg4: offset.
+     * return: 0 if success.
+     */
+    int  (*attach_uretprobe)(const char* func, int pid, const char *binary_path, unsigned long func_offset);
+    /*
+     * member: attach_tracepoint
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: tp_category.
+     * arg3: tp_name.
+     * return: 0 if success.
+     */
+    int  (*attach_tracepoint)(const char* func, const char *tp_category, const char *tp_name);
+    /*
+     * member: attach_raw_tracepoint
+     * description: attach kprobe.
+     * arg1: function name in bpf.c.
+     * arg2: tp_name.
+     * return: 0 if success.
+     */
+    int  (*attach_raw_tracepoint)(const char* func, const char *tp_name);
+    /*
+     * member: attach_cgroup
+     * description: attach cgroup.
+     * arg1: function name in bpf.c.
+     * arg2: cgroup_fd.
+     * return: 0 if success.
+     */
+    int  (*attach_cgroup)(const char* func, int cgroup_fd);
+    /*
+     * member: attach_netns
+     * description: attach netns.
+     * arg1: function name in bpf.c.
+     * arg2: netns.
+     * return: 0 if success.
+     */
+    int  (*attach_netns)(const char* func, int netns);
+    /*
+     * member: attach_xdp
+     * description: attach xdp.
+     * arg1: function name in bpf.c.
+     * arg2: ifindex.
+     * return: 0 if success.
+     */
+    int  (*attach_xdp)(const char* func, int ifindex);
     const char* (*get_map_types)(void);
     /*
      * member: ksym_search

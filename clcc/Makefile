@@ -2,7 +2,7 @@
 #Makefile for simple programs
 ###########################################
 
-SUBDIRS=hello event_out hash_map call_stack
+SUBDIRS=hello event_out hash_map call_stack attach
 
 all:$(SUBDIRS)
 
