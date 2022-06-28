@@ -29,6 +29,10 @@ from pylcc.lbcInclude import ClbcInclude
 LBC_COMPILE_PORT = 7655
 
 
+def getCwd(pathStr):
+    return os.path.split(os.path.realpath(pathStr))[0]
+
+
 class ClbcLoad(object):
     def __init__(self, bpf, bpf_str="",
                  server="pylcc.openanolis.cn",
@@ -261,10 +265,10 @@ class ClbcBase(ClbcLoad):
     def __init__(self, bpf, bpf_str="",
                  server="pylcc.openanolis.cn",
                  arch="", ver="", env="",
-                 attach=1,
+                 attach=1, workPath=None
                  ):
         super(ClbcBase, self).__init__(bpf, bpf_str, server, arch, ver,
-                                       env)
+                                       env, workPath=workPath)
         bpf_so = self._setupSoName(bpf)
         self._loadSo(bpf_so)
         self._initSo(attach)
