@@ -38,7 +38,7 @@ int j_vfs_create(struct pt_regs *ctx)
 {
     u32 pid = bpf_get_current_pid_tgid() >> 32;
     struct dentry *dentry = (struct dentry *)PT_REGS_PARM2(ctx);
-    
+
     FILTER
 
     u64 ts = bpf_ktime_get_ns();
@@ -51,7 +51,7 @@ int j_security_inode_create(struct pt_regs *ctx)
 {
     u32 pid = bpf_get_current_pid_tgid() >> 32;
     struct dentry *dentry = (struct dentry *)PT_REGS_PARM2(ctx);
-    
+
     FILTER
 
     u64 ts = bpf_ktime_get_ns();

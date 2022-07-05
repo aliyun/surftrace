@@ -77,7 +77,7 @@ static int trace_rw_entry(struct pt_regs *ctx, struct file *file, size_t count)
     val.name_len = d_name.len;
     bpf_probe_read_kernel(&val.name, sizeof(val.name), d_name.name);
     bpf_get_current_comm(&val.comm, sizeof(val.comm));
-    bpf_map_update_elem(&entryinfo, &pid, &val, BPF_ANY); //entryinfo.update(&pid, &val); 
+    bpf_map_update_elem(&entryinfo, &pid, &val, BPF_ANY); //entryinfo.update(&pid, &val);
 
     return 0;
 }

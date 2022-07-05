@@ -33,7 +33,7 @@ int j_wake_up_new_task(struct pt_regs *ctx)
     struct task_struct* parent = (struct task_struct *)PT_REGS_PARM1(ctx);
     u32 pid = BPF_CORE_READ(parent, pid);
     u32 *pcnt, cnt;
-    
+
     pcnt =  bpf_map_lookup_elem(&pid_cnt, &pid);
     cnt  = pcnt ? *pcnt + 1 : 1;
     bpf_map_update_elem(&pid_cnt, &pid, &cnt, BPF_ANY);
@@ -43,7 +43,7 @@ int j_wake_up_new_task(struct pt_regs *ctx)
     bpf_get_current_comm(&data.c_comm, TASK_COMM_LEN);
     data.p_pid = BPF_CORE_READ(parent, pid);
     bpf_core_read(&data.p_comm[0], TASK_COMM_LEN, &parent->comm[0]);
-    
+
     bpf_perf_event_output(ctx, &e_out, BPF_F_CURRENT_CPU, &data, sizeof(data));
     return 0;
 }

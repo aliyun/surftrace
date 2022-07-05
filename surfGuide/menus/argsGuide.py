@@ -369,7 +369,7 @@ class CargsGuide(CconBase):
         self._strFxpr = self._argSym + reg
         if cells[0] == '':
             return {"type": ''}
-            
+
         i = 0; end = len(cells); lastCell = None
         sMem = ""; origType = sType = "unkown"; tStruct = None; origMode = '->'
 

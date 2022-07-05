@@ -26,7 +26,7 @@ def callback(line):
         lport = args['args']['lport']
         daddr = args['args']['ip_daddr']
         dport = args['args']['b16_dport']
-        print("%-20s %-10s %-20s %-16s %-8s %-16s %-8s" % 
+        print("%-20s %-10s %-20s %-16s %-8s %-16s %-8s" %
                 (timestamp, pid, comm, saddr, lport, daddr,dport))
 
 expr = ['p tcp_connect \

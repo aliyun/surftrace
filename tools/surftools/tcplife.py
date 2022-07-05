@@ -28,7 +28,7 @@ def callback(line):
         pid = args['pid']
         comm = args['args']['comm']
         sk = args['args']['sk']
-        
+
         newstate = args['args']['newstate']
         if int(newstate) < tcp_states.index('FIN_WAIT1') and sk not in birth:
             birth[sk] = times
@@ -46,7 +46,7 @@ def callback(line):
             dport = args['args']['b16_dport']
             bytes_acked = args['args']['bytesacked']
             bytes_received = args['args']['bytesreceived']
-            print("%-20s %-10s %-20s %-16s %-8s %-16s %-8s %5d %5d %5d" % 
+            print("%-20s %-10s %-20s %-16s %-8s %-16s %-8s %5d %5d %5d" %
                     (timestamp, pids, comms, saddr, lport, daddr, dport, int(bytes_acked)/1024, int(bytes_received)/1024, int(delta_ms)))
 
 expr = ['p tcp_set_state \
