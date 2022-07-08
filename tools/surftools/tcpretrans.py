@@ -28,7 +28,7 @@ def callback(line):
         daddr = args['args']['ip_daddr']
         dport = args['args']['b16_dport']
         state = args['args']['state']
-        print("%-20s %-10s %-20s %20s:%-6s %20s:%-6s %10s" % 
+        print("%-20s %-10s %-20s %20s:%-6s %20s:%-6s %10s" %
                 (timestamp, pid, comm, saddr, lport, daddr, dport, tcp_states[int(state)]))
 
 expr = ['p tcp_retransmit_skb \

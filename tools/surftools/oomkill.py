@@ -25,7 +25,7 @@ def callback(line):
         chosen_pid = args['args']['chosenpid']
         chosen_comm = args['args']['chosencomm']
         totalpages = args['args']['totalpages']
-        print("%s Triggered by PID %s (\"%s\"), OOM kill of PID %s (\"%s\"), %s pages " % 
+        print("%s Triggered by PID %s (\"%s\"), OOM kill of PID %s (\"%s\"), %s pages " %
                 (timestamp, pid, comm, chosen_pid, chosen_comm, totalpages))
 
 # stress --vm 70 --vm-bytes 1073741824 --vm-hang 20

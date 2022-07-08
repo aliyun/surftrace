@@ -108,7 +108,7 @@ class CstructSelctor(CconBase):
         if res == -1:
             self._setFooter("filter: %s, can not match any members." % self._filter)
         elif res != index:
-            self._setFocusMember(res)  
+            self._setFocusMember(res)
         self._setFooter("filter: %s, match member %d" % (self._filter, res))
 
     def _addFilter(self, ch):

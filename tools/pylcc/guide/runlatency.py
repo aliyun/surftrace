@@ -34,12 +34,12 @@ SEC("kprobe/check_timer_delay")
 int j_check_timer_delay(struct pt_regs *ctx)
 {
     struct data_t data = {};
-    
+
     data.cpu = PT_REGS_PARM2(ctx);
     data.type = PT_REGS_PARM1(ctx);
     data.delayed = PT_REGS_PARM3(ctx);
     data.stack_id = bpf_get_stackid(ctx, &call_stack, KERN_STACKID_FLAGS);
-    
+
     bpf_perf_event_output(ctx, &e_out, BPF_F_CURRENT_CPU, &data, sizeof(data));
     return 0;
 }
