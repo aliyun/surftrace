@@ -59,11 +59,13 @@ def splitExpr(text):
             if count < 0:
                 return None
         elif count == 0 and c == " ":
-            if e != "": es.append(e)
+            if e != "":
+                es.append(e)
             e = ""
             continue
         e += c
-    if e != "": es.append(e)
+    if e != "":
+        es.append(e)
     return es
 
 
@@ -73,7 +75,7 @@ def spiltInputLine(line):
     esLen = len(es)
     if esLen < 2:
         raise ExprException("%s is a single expression" % line)
-    if es[0] not in ('p', 'r', 'e'):
+    if es[0] not in ('p', 'r', 'e', 'P', 'R'):
         raise ExprException("not support %s event." % es[0])
     res['type'] = es[0]
     res['symbol'] = es[1]

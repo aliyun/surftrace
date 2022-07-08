@@ -58,6 +58,13 @@ class surftrace(ftrace):
         else:
             self._cbShow = self._showFxpr
         self._fullWarning = True
+        self._funcs = {
+            'e': self._setupEvent,
+            'p': self._setupKprobe,
+            'r': self._setupKprobe,
+            'P': self._setupUprobe,
+            'R': self._setupUprobe,
+        }
 
     def _setupArch(self, arch):
         if arch == "":
@@ -116,7 +123,7 @@ class surftrace(ftrace):
         res = {"type": sType, "fxpr": fxpr, "filter": filter}
         self._cbShow(res)
 
-    def __setupEvent(self, res):
+    def _setupEvent(self, i, res):
         e = res['symbol']
         eBase = os.path.join(self.baseDir, "tracing/instances/%s/events" % self._instance)
         eDir = os.path.join(eBase, e)
@@ -179,12 +186,18 @@ class surftrace(ftrace):
             res = spiltInputLine(arg)
         except ExprException as e:
             raise ExprException("expression %s error, %s" % (arg, e.message))
-        if res['type'] == 'e':
-            self.__setupEvent(res)
-            return
+        self._funcs[res['type']](i, res)
 
-        name = "f%d" % i
-        cmd = "%s:f%d " % (res['type'], i)
+    def _setupUprobe(self, i, res):
+        t = str.lower(res['type'])
+        name = "k%d" % i
+        cmd = "%s:k%d " % (t, i)
+        symbol = res['symbol']
+        pass
+
+    def _setupKprobe(self, i, res):
+        name = "k%d" % i
+        cmd = "%s:k%d " % (res['type'], i)
         symbol = res['symbol']
         inFlag = False
 

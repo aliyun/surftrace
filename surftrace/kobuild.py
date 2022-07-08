@@ -23,9 +23,9 @@ MAX_LENS = 16 * 1024 * 1024
 class CkoBuilder(object):
     def __init__(self):
         self._cli = ClbcClient()
+        super(CkoBuilder, self).__init__()
 
     def _getko(self, path, name):
-        stream = None
         with open(os.path.join(path, name), 'rb') as f:
             stream = f.read()
         return stream
