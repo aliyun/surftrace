@@ -128,7 +128,7 @@ class CgdbParser(object):
         self._pSize = self.__showTypeSize("void *")
         self._iSize = self.__showTypeSize("int")
         self._checkGdbVer()
-    
+
     def __del__(self):
         self.__aCmd.terminate()
 
@@ -177,7 +177,7 @@ class CgdbParser(object):
         except IndexError:
             return 0
         return int(nStr)
-    
+
     def _showTypeSize(self, sType):
         if "*" in sType:
             return self._pSize
@@ -232,7 +232,7 @@ class CgdbParser(object):
         self._setupRes()
         if len(func) < 2:
             return {"log": "func len should bigger than 2.", "res": None}
-        
+
         self._res['res'] = []
         func = func.replace("%", "*")
         func = "^" + func
@@ -265,12 +265,12 @@ class CgdbParser(object):
                     ret, func = head.rsplit(" ", 1)
                 funcd = {'func': func, 'args': args, 'ret': ret, 'line': int(lineNo), 'file': File}
                 self._res['res'].append(funcd)
-                
+
                 funcs += 1
                 if funcs > 20:
                     break
         return self._res
-    
+
     def _stripRem(self, line):
         return self._reRem.sub("", line).strip()
 
@@ -373,7 +373,7 @@ class CgdbParser(object):
         self._parseLoop(name, lines, "")
         self._res['res']['members'] = len(self._res['res']['cell'])
         return self._res
-    
+
     def testStructs(self, sStruct):
         self._setupRes()
         with open("struct.txt", 'r') as f:

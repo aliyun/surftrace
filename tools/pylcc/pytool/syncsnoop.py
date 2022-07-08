@@ -7,10 +7,10 @@ bpfPog = """
     struct data_t {
         u64 ts;
     };
-    LBC_PERF_OUTPUT(e_out, struct data_t, 128);    
+    LBC_PERF_OUTPUT(e_out, struct data_t, 128);
     SEC("tracepoint/syscalls/sys_enter_open")
-    int trace_enter_open(struct syscalls_enter_open_args *ctx)        
-    {   
+    int trace_enter_open(struct syscalls_enter_open_args *ctx)
+    {
         struct data_t data = {};
         data.ts = bpf_ktime_get_ns() / 1000;
         bpf_perf_event_output(ctx, &e_out, BPF_F_CURRENT_CPU, &data, sizeof(data));

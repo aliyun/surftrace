@@ -90,7 +90,7 @@ class surftrace(ftrace):
             path, v = op[0], op[1]
             self._echoPath(path, v)
         self._events = []
-        
+
     def __transFilter(self, filter, i, beg):
         decisions = ('==', '!=', '~', '>=', '<=', '>', '<')
         s = filter[beg:i]
@@ -268,7 +268,7 @@ class surftrace(ftrace):
             elif res.startswith("%s.isra" % name) or res.startswith("%s.part" % name):
                 return res
         return None
-    
+
     def _cbLine(self, line):
         print("%s" % line)
 

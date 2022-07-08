@@ -41,7 +41,7 @@ int j_wake_up_new_task(struct pt_regs *ctx)
     bpf_get_current_comm(&data.c_comm, TASK_COMM_LEN);
     data.p_pid = pid;
     bpf_core_read(&data.p_comm[0], TASK_COMM_LEN, &parent->comm[0]);
-    
+
     bpf_perf_event_output(ctx, &e_out, BPF_F_CURRENT_CPU, &data, sizeof(data));
     return 0;
 }

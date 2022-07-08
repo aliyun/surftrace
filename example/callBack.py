@@ -13,8 +13,8 @@
 """
 __author__ = 'liaozhaoyan'
 
-import sys 
-sys.path.append("..") 
+import sys
+sys.path.append("..")
 from surftrace import surftrace, setupParser
 
 def callbackOrig(line):
