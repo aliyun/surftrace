@@ -1,0 +1,174 @@
+Demonstrations of opensnoop, the Linux eBPF/pylcc version.
+
+opensnoop traces the open() syscall system-wide, and prints various details.
+Example output:
+
+# python opensnoop.py    
+remote server compile success.
+UID  PID      COMM             FILENAME                            DELTATIME(us)       FD
+0    31978    node             /proc/6512/cmdline                         26.877       19
+0    6517     sh               /etc/ld.so.cache                           10.687        3
+0    6517     sh               /lib64/libtinfo.so.5                        7.134        3
+0    6517     sh               /lib64/libdl.so.2                           6.406        3
+0    6517     sh               /lib64/libc.so.6                            6.275        3
+0    6517     sh               /dev/tty                                   11.296 4294967290
+0    6517     sh               /usr/lib/locale/locale-archive              7.869        3
+0    6517     sh               /proc/meminfo                                10.7        3
+0    6517     sh               /usr/lib64/gconv/gconv-modules.             5.856        3
+0    6517     which            /etc/ld.so.cache                            6.176        3
+0    6517     which            /lib64/libc.so.6                            5.361        3
+0    6518     sh               /etc/ld.so.cache                            5.761        3
+0    6518     sh               /lib64/libtinfo.so.5                        6.022        3
+0    6518     sh               /lib64/libdl.so.2                           5.479        3
+0    6518     sh               /lib64/libc.so.6                            4.445        3
+0    6518     sh               /dev/tty                                    7.442 4294967290
+0    6518     sh               /usr/lib/locale/locale-archive              5.557        3
+0    6518     sh               /proc/meminfo                               8.989        3
+0    6518     sh               /etc/nsswitch.conf                          4.566        3
+0    6518     sh               /etc/ld.so.cache                            5.088        3
+0    6518     sh               /lib64/libnss_files.so.2                    7.865        3
+0    6518     sh               /etc/passwd                                  6.55        3
+0    6518     ps               /etc/ld.so.cache                            6.653        3
+0    6518     ps               /lib64/libprocps.so.4                       8.826        3
+0    6518     ps               /lib64/libsystemd.so.0                      8.933        3
+0    6518     ps               /lib64/libdl.so.2                          15.249        3
+0    6518     ps               /lib64/libc.so.6                            6.328        3
+0    6518     ps               /lib64/libcap.so.2                          8.722        3
+0    6518     ps               /lib64/libm.so.6                            7.387        3
+0    6518     ps               /lib64/librt.so.1                           7.754        3
+0    6518     ps               /lib64/libselinux.so.1                      7.046        3
+0    6518     ps               /lib64/liblzma.so.5                         7.281        3
+0    6518     ps               /lib64/liblz4.so.1                          8.185        3
+^Ckey interrupt.
+
+While tracing, the ps process read various libraries and config files (looks like it
+was starting up: a new process).
+
+opensnoop can be useful for discovering configuration and log files, if used
+during application startup.
+
+
+The -p option can be used to filter on a PID, which is filtered in-kernel.
+
+
+# python opensnoop.py -p 1885
+remote server compile success.
+UID  PID      COMM             FILENAME                            DELTATIME(us)       FD
+0    1885     ilogtail         /proc/self/stat                            17.934       25
+0    1885     ilogtail         /proc/1885/cmdline                         13.091       25
+0    1885     ilogtail         /proc/self/stat                            28.615       25
+0    1885     ilogtail         /usr/local/ilogtail/                       11.717       25
+0    1885     ilogtail         /proc/self/stat                            26.358       25
+0    1885     ilogtail         /proc/self/stat                            30.631       25
+0    1885     ilogtail         /proc/self/stat                            29.798       25
+0    1885     ilogtail         /proc/self/stat                            20.342       25
+0    1885     ilogtail         /proc/self/stat                            31.611       25
+0    1885     ilogtail         /proc/self/stat                            32.444       25
+0    1885     ilogtail         /proc/self/stat                            31.639       25
+0    1885     ilogtail         /proc/self/stat                            29.541       25
+^Ckey interrupt.
+
+this shows the ilogtail process which pid is 1885, opended various /proc/ files,
+and we can see the DELTATIME.
+
+
+The -U option include UID on output:
+
+# ./opensnoop -U
+UID   PID    COMM               FD ERR PATH
+0     27063  vminfo              5   0 /var/run/utmp
+103   628    dbus-daemon        -1   2 /usr/local/share/dbus-1/system-services
+103   628    dbus-daemon        18   0 /usr/share/dbus-1/system-services
+103   628    dbus-daemon        -1   2 /lib/dbus-1/system-services
+
+
+The -u option filtering UID:
+
+# python opensnoop.py -u 997
+remote server compile success.
+UID  PID      COMM             FILENAME                            DELTATIME(us)       FD
+997  1289     zerotier-one     /proc/net/dev_mcast                        23.114       14
+997  1289     zerotier-one     /proc/net/dev_mcast                        28.241       14
+997  1289     zerotier-one     /proc/net/dev_mcast                        38.545       14
+997  1289     zerotier-one     /proc/1289/net/dev                          30.41       14
+997  1289     zerotier-one     /proc/1289/net/if_inet6                    10.026       14
+997  1289     zerotier-one     /proc/net/dev_mcast                        35.183       14
+997  1289     zerotier-one     /proc/net/dev_mcast                        32.937       14
+997  1289     zerotier-one     /proc/net/dev_mcast                        28.233       14
+^Ckey interrupt.
+
+This shows all files opened by UID 997 user.
+
+
+A maximum tracing duration can be set with the -d option. For example, to trace
+for 40 us:
+
+python opensnoop.py -d 40
+remote server compile success.
+UID  PID      COMM             FILENAME                            DELTATIME(us)       FD
+0    1084     tailscaled       /proc/net/tcp                              47.871       18
+0    1084     tailscaled       /proc/net/tcp                              58.761       18
+0    1885     ilogtail         /usr/local/ilogtail/inotify_wat            63.351       25
+0    1084     tailscaled       /proc/net/tcp                              41.782       18
+0    1084     tailscaled       /proc/net/tcp                              40.907       18
+0    1469     /usr/local/clou  /proc/diskstats                             45.05       10
+0    1084     tailscaled       /proc/net/tcp                              45.571       18
+^Ckey interrupt.
+
+
+The -c option can be used to filter on process comm using partial matches:
+
+# python opensnoop.py -c cat
+remote server compile success.
+UID  PID      COMM             FILENAME                            DELTATIME(us)       FD
+0    7702     cat              /etc/ld.so.cache                            4.806        3
+0    7702     cat              /lib64/libc.so.6                             4.55        3
+0    7702     cat              /usr/lib/locale/locale-archive              7.789        3
+0    7702     cat              /proc/5451/stat                             8.669        3
+0    7703     cat              /etc/ld.so.cache                            4.948        3
+0    7703     cat              /lib64/libc.so.6                            4.197        3
+0    7703     cat              /usr/lib/locale/locale-archive              7.027        3
+0    7703     cat              /proc/7692/stat                             8.086        3
+0    7704     cat              /etc/ld.so.cache                            5.099        3
+0    7704     cat              /lib64/libc.so.6                             5.73        3
+0    7704     cat              /usr/lib/locale/locale-archive              5.592        3
+0    7704     cat              /proc/7696/stat                             9.235        3
+0    7707     cat              /etc/ld.so.cache                            5.893        3
+0    7707     cat              /lib64/libc.so.6                            5.149        3
+0    7707     cat              /usr/lib/locale/locale-archive              6.836        3
+0    7707     cat              /proc/5451/stat                            10.949        3
+0    7709     cat              /etc/ld.so.cache                             6.91        3
+0    7709     cat              /lib64/libc.so.6                            5.928        3
+0    7709     cat              /usr/lib/locale/locale-archive              9.114        3
+0    7709     cat              /proc/7692/stat                             8.968        3
+0    7711     cat              /etc/ld.so.cache                            5.201        3
+0    7711     cat              /lib64/libc.so.6                             6.24        3
+0    7711     cat              /usr/lib/locale/locale-archive              6.012        3
+0    7711     cat              /proc/7696/stat                            10.755        3
+^Ckey interrupt.
+
+
+
+
+
+USAGE message:
+
+# python opensnoop.py --help
+usage: opensnoop.py [-h] [-p PID] [-c COMM] [-d DELAY] [-u UID]
+
+Trace open() syscalls
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -p PID, --pid PID     trace this PID only
+  -c COMM, --comm COMM  only print process names containing this name
+  -d DELAY, --delay DELAY
+                        only print delta time more than this threshold value
+  -u UID, --uid UID     trace this UID only
+
+examples:
+    ./opensnoop           # trace all open() syscalls
+    ./opensnoop -p 1469   # only trace PID 1469
+    ./opensnoop -c cat    # only trace process name contain cat
+    ./opensnoop -d 10     # only print the delta time more than this threshold value
+    ./opensnoop -u 1000   # only trace uid 1000
