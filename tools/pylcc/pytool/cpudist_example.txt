@@ -1,0 +1,49 @@
+ 311 lines (263 sloc)  16.3 KB
+
+Demonstrations of cpudist.
+
+This program summarizes task on-CPU time as a histogram, showing how long tasks
+spent on the CPU before being descheduled. This provides valuable information
+that can indicate oversubscription (too many tasks for too few processors),
+overhead due to excessive context switching (e.g. a common shared lock for
+multiple threads), uneven workload distribution, too-granular tasks, and more.
+
+By default CPU idle time are excluded by simply excluding PID 0.
+
+Alternatively, the same options are available for summarizing task off-CPU
+time, which helps understand how often threads are being descheduled and how
+long they spend waiting for I/O, locks, timers, and other causes of suspension.
+
+#python cpudist.py
+
+hist2:
+[32,64)     2   |                                                   |
+[64,128)    0   |                                                   |
+[128,256)   3   |                                                   |
+[256,512)   3   |                                                   |
+[512,1K)    18  |                                                   |
+[1K,2K)     103 |                                                   |
+[2K,4K)     1K  |@@@@@@@@@@@@@                                      |
+[4K,8K)     696 |@@@@@@                                             |
+[8K,16K)    856 |@@@@@@@@                                           |
+[16K,32K)   209 |@                                                  |
+[32K,64K)   974 |@@@@@@@@@                                          |
+[64K,128K)  70  |                                                   |
+[128K,256K) 108 |@                                                  |
+[256K,512K) 144 |@                                                  |
+[512K,1M)   136 |@                                                  |
+[1M,2M)     113 |@                                                  |
+[2M,4M)     423 |@@@                                                |
+[4M,8M)     4   |                                                   |
+[8M,16M)    93  |                                                   |
+[16M,32M)   7   |                                                   |
+[32M,64M)   2   |                                                   |
+
+hist10:
+[100,1K)    5   |                                                   |
+[1K,10K)    1K  |@@@@@@@@@@@@                                       |
+[10K,100K)  2K  |@@@@@@@@@@@@@@@@@@@@@@@@@@@                        |
+[100K,1M)   333 |@@@                                                |
+[1M,10M)    506 |@@@@                                               |
+[10M,100M)  380 |@@@                                                |
+[100M,1G)   1   |
