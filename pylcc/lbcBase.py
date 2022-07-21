@@ -19,8 +19,7 @@ import ctypes as ct
 import _ctypes as _ct
 import json
 import hashlib
-from pylcc.lbcMaps import CmapsEvent, CmapsHash, CmapsArray, \
-    CmapsLruHash, CmapsPerHash, CmapsPerArray, CmapsLruPerHash, CmapsStack
+from pylcc.lbcMaps import mapsDict
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
 from surftrace.lbcClient import ClbcClient, segDecode
@@ -309,14 +308,7 @@ class ClbcBase(ClbcLoad):
 
     def _loadMaps(self):
         d = self._loadDesc()['maps']
-        tDict = {'event': CmapsEvent,
-                 'hash': CmapsHash,
-                 'array': CmapsArray,
-                 'lruHash': CmapsLruHash,
-                 'perHash': CmapsPerHash,
-                 'perArray': CmapsPerArray,
-                 'lruPerHash': CmapsLruPerHash,
-                 'stack': CmapsStack, }
+        tDict = mapsDict
         for k in d.keys():
             t = d[k]['type']
             if t in tDict:

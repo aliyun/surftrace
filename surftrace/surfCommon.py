@@ -84,7 +84,7 @@ class CsurfList(deque):
 
     def _showHist2(self, lShow):
         start, end = self._getRegion(lShow)
-        maxV = len(self)
+        maxV = sum(lShow)
         maxColumns = self._getColumns()
         if maxColumns < 30:
             raise OverflowError("this terminal is too short to show histogram.")
@@ -99,7 +99,7 @@ class CsurfList(deque):
 
     def _showHist10(self, lShow):
         start, end = self._getRegion(lShow)
-        maxV = len(self)
+        maxV = sum(lShow)
         maxColumns = self._getColumns()
         if maxColumns < 30:
             raise OverflowError("this terminal is too short to show histogram.")
@@ -114,6 +114,12 @@ class CsurfList(deque):
             else:
                 head = "[%s,%s)" % (self._transUnit10(10 ** i), self._transUnit10(10 ** (i + 1)))
             print("%-12s%-4s|%s%s|" % (head, self._transUnit10(lShow[i]), fill, blank))
+
+    def hist2Show(self, lShow):
+        self._showHist2(lShow)
+
+    def hist10Show(self, lShow):
+        self._showHist10(lShow)
 
     def hist2(self):
         lShow = [0] * HIST2_MAX

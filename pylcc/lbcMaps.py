@@ -22,6 +22,7 @@ try:
 except ImportError:
     from collections import MutableMapping
 from surftrace import InvalidArgsException
+from surftrace.surfCommon import CsurfList
 
 
 class CtypeData(object):
@@ -88,6 +89,7 @@ class CtypeData(object):
             d = self._loadData(data, 0, self.dForm)
         self.localDict = d
         self.__dict__.update(self.localDict)
+
 
 class CtypeTable(CtypeData):
     def __init__(self, dForm, data=None):
@@ -229,6 +231,42 @@ class CmapsArray(CtableBase):
     def __init__(self, so, name, dTypes):
         super(CmapsArray, self).__init__(so, name, dTypes)
 
+    def get(self, size=10):
+        a = []
+        for i in range(size):
+            a.append(self.getKeyValue(i))
+        return a
+
+
+class CmapsHist2(CmapsArray):
+    def __init__(self, so, name, dTypes):
+        super(CmapsHist2, self).__init__(so, name, dTypes)
+
+    def get(self, size=64):
+        return super(CmapsHist2, self).get(size)
+
+    def showHist(self, head="dummy", array=None):
+        if array is None:
+            array = self.get()
+        aList = CsurfList(1)
+        print(head)
+        aList.hist2Show(array)
+
+
+class CmapsHist10(CmapsArray):
+    def __init__(self, so, name, dTypes):
+        super(CmapsHist10, self).__init__(so, name, dTypes)
+
+    def get(self, size=20):
+        return super(CmapsHist10, self).get(size)
+
+    def showHist(self, head="dummy", array=None):
+        if array is None:
+            array = self.get()
+        aList = CsurfList(1)
+        print(head)
+        aList.hist10Show(array)
+
 
 class CmapsLruHash(CtableBase):
     def __init__(self, so, name, dTypes):
@@ -316,18 +354,22 @@ class CmapsEvent(CeventBase):
         return e
 
 
+mapsDict = {'event': CmapsEvent,
+            'hash': CmapsHash,
+            'array': CmapsArray,
+            'hist2': CmapsHist2,
+            'hist10': CmapsHist10,
+            'lruHash': CmapsLruHash,
+            'perHash': CmapsPerHash,
+            'perArray': CmapsPerArray,
+            'lruPerHash': CmapsLruPerHash,
+            'stack': CmapsStack, }
+
+
 def paserMaps(so, name, dTypes):
     t = dTypes['type']
-    tDict = {'event': CmapsEvent,
-             'hash': CmapsHash,
-             'array': CmapsArray,
-             'lruHash': CmapsLruHash,
-             'perHash': CmapsPerHash,
-             'perArray': CmapsPerArray,
-             'lruPerHash': CmapsLruPerHash,
-             'stack': CmapsStack, }
-    if t in tDict:
-        return tDict['t'](so, name, dTypes)
+    if t in mapsDict:
+        return mapsDict['t'](so, name, dTypes)
 
 
 if __name__ == "__main__":

@@ -51,6 +51,7 @@ int j_wake_up_new_task(struct pt_regs *ctx)
 char _license[] SEC("license") = "GPL";
 """
 
+
 class ChashMap(ClbcBase):
     def __init__(self):
         super(ChashMap, self).__init__("hashMap", bpf_str=bpfPog)
@@ -70,6 +71,7 @@ class ChashMap(ClbcBase):
             dMap = self.maps['pid_cnt']
             print(dMap.get())
             exit()
+
 
 if __name__ == "__main__":
     e = ChashMap()
