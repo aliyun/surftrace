@@ -62,11 +62,9 @@ class Ccpudist(ClbcBase):
         super(Ccpudist, self).__init__("cpudist", bpf_str=bpfProg)
 
     def proc(self):
-        h2 = self.maps['hist2']
-        h2.showHist("hist2:")
+        self.maps['hist2'].showHist("hist2:")
         print
-        h10 = self.maps['hist10']
-        h10.showHist("hist10:")
+        self.maps['hist10'].showHist("hist10:")
 
 
 if __name__ == "__main__":
