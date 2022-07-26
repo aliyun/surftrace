@@ -183,7 +183,7 @@ def _transProbe(line, res):
     _, rest = rest.split("(", 1)
     funcs, args = rest.split(")", 1)
     func, sizes = funcs.split("+", 1)
-    pos, size = sizes.split("/", 1)
+    pos, size = sizes.split(" ")[0].split("/", 1)
     res['func'] = func
     res['pos'] = int(pos, 16)
     res['size'] = int(size, 16)
@@ -193,7 +193,7 @@ def _transProbe(line, res):
 
 def transProbeLine(line):
     tasks, rest = line.split(" [", 1)
-    task, pid = tasks.strip().rsplit('-', 1)
+    task, pid = tasks.strip().split(" ")[0].rsplit('-', 1)
     res = {"task": task, "pid": int(pid)}
     cpu, rest = rest.split("] ", 1)
     res["cpu"] = int(cpu)

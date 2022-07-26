@@ -1,0 +1,60 @@
+Demonstrations of tcprtt, the Linux eBPF/pylcc version.
+
+
+This program traces TCP RTT(round-trip time) to analyze the quality of
+network, then help us to distinguish the network latency trouble is from
+user process or physical network.
+
+
+Use filter for address and(or) port. Ex, only collect local address 192.168.122.200
+and remote address 192.168.122.100 and remote port 80.
+# ./tcprtt -i 1 -d 10 -a 192.168.122.200 -A 192.168.122.100 -P 80
+
+Tracing at server side. Show all clients histogram summary.
+For example:
+# python tcprtt.py -d 10 -i 3                                 
+----------------------------
+
+sport: None  dport: None  saddr: None  daddr: None
+ms      count   distribution
+hist2:
+[0,1)       44  |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                                                                         |
+[1,2)       18  |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                                                                                                                     |
+[2,4)       6   |@@@@@@@@@                                                                                                                                         |
+[4,8)       2   |@@@                                                                                                                                               |
+[8,16)      0   |                                                                                                                                                  |
+[16,32)     18  |@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                                                                                                                     |
+----------------------------
+
+
+USAGE Messages:
+# python tcprtt.py -h
+usage: tcprtt.py [-h] [-i INTERVAL] [-d DURATION] [-p LPORT] [-P RPORT] [-a LADDR] [-A RADDR]
+
+Summarize TCP RTT as a histogram
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INTERVAL, --interval INTERVAL
+                        summary interval, seconds
+  -d DURATION, --duration DURATION
+                        total duration of trace, seconds
+  -p LPORT, --lport LPORT
+                        filter for local port
+  -P RPORT, --rport RPORT
+                        filter for remote port
+  -a LADDR, --laddr LADDR
+                        filter for local address
+  -A RADDR, --raddr RADDR
+                        filter for remote address
+
+examples:
+    ./tcprtt            # summarize TCP RTT
+    ./tcprtt -i 1 -d 10 # print 1 second summaries, 10 times
+    ./tcprtt -p         # filter for local port
+    ./tcprtt -P         # filter for remote port
+    ./tcprtt -a         # filter for local address
+    ./tcprtt -A         # filter for remote address
+    ./tcprtt -b         # show sockets histogram by local address
+    ./tcprtt -B         # show sockets histogram by remote address
+    ./tcprtt -e         # show extension summary(average)
