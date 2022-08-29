@@ -48,8 +48,8 @@ int sched_switch_hook(struct sched_switch_args *args){
     bpf_map_update_elem(&start, &next, &ts, BPF_ANY);
     pv = bpf_map_lookup_elem(&start, &prev);
     if (pv && ts > *pv) {
-        hist10_push(&hist10, ts- *pv);
-        hist2_push(&hist2, ts- *pv);
+        hist10_push(&hist10, ts - *pv);
+        hist2_push(&hist2, ts - *pv);
     }
 }
 

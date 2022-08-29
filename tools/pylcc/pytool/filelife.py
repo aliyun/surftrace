@@ -79,7 +79,6 @@ int j_vfs_unlink(struct pt_regs *ctx)
 
     struct qstr d_name;
     d_name = BPF_CORE_READ(dentry, d_name);
-//    bpf_core_read(&d_name, sizeof(struct qstr), &dentry->d_name);
     if (d_name.len == 0)
         return 0;
 
@@ -107,6 +106,7 @@ class CfileLife(ClbcBase):
         print("%-8s %-6d %-16s %-7.2f %s" % (strftime("%H:%M:%S"), e.pid,
                                              e.comm, float(e.delta) / 1000,
                                              e.fname))
+
     def loop(self):
         self.maps['events'].open_perf_buffer(self._cb)
         try:
@@ -114,6 +114,7 @@ class CfileLife(ClbcBase):
         except KeyboardInterrupt:
             print("key interrupt.")
             exit()
+
 
 if __name__ == "__main__":
     # arguments

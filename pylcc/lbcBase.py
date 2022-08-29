@@ -275,9 +275,9 @@ class ClbcBase(ClbcLoad):
         self._loadMaps()
 
     def _setupAttatchs(self):
-        #   int lbc_attach_perf_event(const char* func, int pfd)
+        #   int lbc_attach_perf_event(const char* func, const char* attrs, int pid, int cpu, int group_fd)
         self._so.lbc_attach_perf_event.restype = ct.c_int
-        self._so.lbc_attach_perf_event.argtypes = [ct.c_char_p, ct.c_int]
+        self._so.lbc_attach_perf_event.argtypes = [ct.c_char_p, ct.c_char_p, ct.c_int, ct.c_int, ct.c_int]
         #   int lbc_attach_kprobe(const char* func, const char* sym)
         self._so.lbc_attach_kprobe.restype = ct.c_int
         self._so.lbc_attach_kprobe.argtypes = [ct.c_char_p, ct.c_char_p]
@@ -322,6 +322,20 @@ class ClbcBase(ClbcLoad):
             return self.maps[name].event(stream)
         except IndexError:
             return None
+
+    # https://man7.org/linux/man-pages/man2/perf_event_open.2.html
+    def attachPerfEvent(self, function, attrD, pid=0, cpu=-1, group_fd=-1):
+        for k, v in attrD.items():  # json int type not support 64 bit
+            if type(v) is not str:
+                try:
+                    attrD[k] = "%d" % v
+                except TypeError:
+                    print("key %s type is %s, not support, skip." % (k, type(v)))
+                    del attrD[k]
+        attrs = json.dumps(attrD)
+        res = self._so.lbc_attach_perf_event(function, attrs, pid, cpu, group_fd)
+        if res != 0:
+            raise InvalidArgsException("attach %s to perf event failed." % function)
 
     def attachKprobe(self, function, symbol):
         res = self._so.lbc_attach_kprobe(function, symbol)

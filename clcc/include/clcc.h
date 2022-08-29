@@ -242,7 +242,7 @@ struct clcc_struct{
 };
 
 
-inline int clcc_setup_syms(void* handle, struct clcc_struct *pclcc)
+static inline int clcc_setup_syms(void* handle, struct clcc_struct *pclcc)
 {
     void** head = (void** )&(pclcc->init);
     void* func = NULL;
@@ -266,7 +266,7 @@ inline int clcc_setup_syms(void* handle, struct clcc_struct *pclcc)
  * arg1: so path to load
  * return: struct clcc_struct *
  */
-inline struct clcc_struct* clcc_init(const char* so_path)
+static inline struct clcc_struct* clcc_init(const char* so_path)
 {
     void *handle = NULL;
     struct clcc_struct *pclcc = NULL;
@@ -304,7 +304,7 @@ open_failed:
  * arg1:  struct clcc_struct *p; setup from clcc_init function, mem will be free in this function.
  * return: None
  */
-inline void clcc_deinit(struct clcc_struct* pclcc)
+static inline void clcc_deinit(struct clcc_struct* pclcc)
 {
     void *handle = pclcc->handle;
 
@@ -321,10 +321,10 @@ inline void clcc_deinit(struct clcc_struct* pclcc)
  * arg4: pclcc: setup from clcc_init function
  * return: 0 if success.
  */
-inline int clcc_get_call_stack(int table_id,
-                               int stack_id,
-                               struct clcc_call_stack *pstack,
-                               struct clcc_struct *pclcc) {
+static inline int clcc_get_call_stack(int table_id,
+                                      int stack_id,
+                                      struct clcc_call_stack *pstack,
+                                      struct clcc_struct *pclcc) {
     int i;
     int ret;
 
@@ -351,8 +351,8 @@ inline int clcc_get_call_stack(int table_id,
  * arg2: pclcc: setup from clcc_init function
  * return: None.
  */
-inline void clcc_print_stack(struct clcc_call_stack *pstack,
-                             struct clcc_struct *pclcc){
+static inline void clcc_print_stack(struct clcc_call_stack *pstack,
+                                    struct clcc_struct *pclcc){
     int i;
     struct ksym* sym;
 

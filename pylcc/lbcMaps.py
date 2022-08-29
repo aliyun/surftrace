@@ -301,14 +301,15 @@ class CmapsStack(CtableBase):
     def getStacks(self, stack_id, sLen=-1):
         arr = []
         stks = self.getKeyValue(stack_id)
-        if sLen == -1:
-            sLen = len(stks)
-        for i in range(sLen):
-            if stks[i]:
-                p = self._so.ksym_search(stks[i])
-                arr.append(p.contents.name.decode())
-            else:
-                break
+        if stks:
+            if sLen == -1:
+                sLen = len(stks)
+            for i in range(sLen):
+                if stks[i]:
+                    p = self._so.ksym_search(stks[i])
+                    arr.append(p.contents.name.decode())
+                else:
+                    break
         return arr
 
 
