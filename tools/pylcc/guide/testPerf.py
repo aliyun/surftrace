@@ -39,9 +39,9 @@ class CtestPerf(ClbcBase):
             "sample_freq": 50,
             "freq": 1,
             "type": PerfType.SOFTWARE,
-            "config": PerfSwIds.PAGE_FAULTS_MIN,
+            "config": PerfSwIds.PAGE_FAULTS,
         }
-        print(self.attachPerfEvent("bpf_prog", pfConfig))
+        self.attachPerfEvent("bpf_prog", pfConfig)
         while True:
             time.sleep(1)
 

@@ -1,0 +1,20 @@
+    User Commands
+
+NAME
+       iptop - display Linux ip top information
+
+DESCRIPTION
+       The iptop program provides a dynamic real-time ip view of a running system. It can
+       display system summary net information as well as a list of ips managed by the Linux
+       kernel.
+
+       pre-install:
+            pip install coolbpf
+
+       run:
+            ./iptop.py
+
+       menu:
+            T/t: show top 10 ip send bytes/packages information.
+            R/r: show top 10 ip receive bytes/packages information.
+            D/d: show top 10 ip dual direction bytes/packages information.
