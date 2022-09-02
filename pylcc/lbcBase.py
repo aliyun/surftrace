@@ -19,6 +19,8 @@ import ctypes as ct
 import _ctypes as _ct
 import json
 import hashlib
+from threading import Thread
+from multiprocessing import cpu_count
 from pylcc.lbcMaps import mapsDict
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
@@ -333,9 +335,14 @@ class ClbcBase(ClbcLoad):
                     print("key %s type is %s, not support, skip." % (k, type(v)))
                     del attrD[k]
         attrs = json.dumps(attrD)
-        res = self._so.lbc_attach_perf_event(function, attrs, pid, cpu, group_fd)
+        res = self._so.lbc_attach_perf_event(function.encode(), attrs.encode(), pid, cpu, group_fd)
         if res != 0:
             raise InvalidArgsException("attach %s to perf event failed." % function)
+
+    def attachAllCpuPerf(self, function, attrD, pid=-1, group_fd=-1):
+        nr_cpu = cpu_count()
+        for i in range(nr_cpu):
+            self.attachPerfEvent(function, attrD, pid=pid, cpu=i, group_fd=group_fd)
 
     def attachKprobe(self, function, symbol):
         res = self._so.lbc_attach_kprobe(function, symbol)
@@ -381,6 +388,24 @@ class ClbcBase(ClbcLoad):
         res = self._so.lbc_attach_xdp(function, ifindex)
         if res != 0:
             raise InvalidArgsException("attach %s to xdp %d failed." % (function, ifindex))
+
+
+class CeventThread(Thread):
+    def __init__(self, lbc, event, cb):
+        super(CeventThread, self).__init__()
+        self.setDaemon(True)
+        self._lbc = lbc
+        self._event = event
+        self._cb = cb
+        self.start()
+
+    def cb(self, cpu, data, size):
+        e = self._lbc.getMap(self._event, data, size)
+        self._cb(cpu, e)
+
+    def run(self):
+        self._lbc.maps[self._event].open_perf_buffer(self.cb)
+        self._lbc.maps[self._event].perf_buffer_poll()
 
 
 if __name__ == "__main__":

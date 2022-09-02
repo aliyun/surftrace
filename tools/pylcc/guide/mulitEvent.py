@@ -12,8 +12,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-from pylcc.lbcBase import ClbcBase
-from threading import Thread
+from pylcc.lbcBase import ClbcBase, CeventThread
 from signal import pause
 
 bpfPog = r"""
@@ -63,32 +62,23 @@ char _license[] SEC("license") = "GPL";
 """
 
 
-class Cevent(Thread):
-    def __init__(self, lbc, event):
-        super(Cevent, self).__init__()
-        self.setDaemon(True)
-        self._lbc = lbc
-        self._event = event
-        self.start()
-
-    def _cb(self, cpu, data, size):
-        e = self._lbc.getMap(self._event, data, size)
-        print("%s: current pid:%d, comm:%s. wake pid: %d, comm: %s" % (
-            self._event, e.c_pid, e.c_comm, e.p_pid, e.p_comm
-        ))
-
-    def run(self):
-        self._lbc.maps[self._event].open_perf_buffer(self._cb)
-        self._lbc.maps[self._event].perf_buffer_poll()
-
-
 class CmulitEvent(ClbcBase):
     def __init__(self):
         super(CmulitEvent, self).__init__("eventOut", bpf_str=bpfPog)
 
+    def _cb_e1(self, cpu, e):
+        print("e1: cpu: %d current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
+            cpu, e.c_pid, e.c_comm, e.p_pid, e.p_comm
+        ))
+
+    def _cb_e2(self, cpu, e):
+        print("e1: cpu: %d current pid:%d, comm:%s. wake_up_process pid: %d, comm: %s" % (
+            cpu, e.c_pid, e.c_comm, e.p_pid, e.p_comm
+        ))
+
     def loop(self):
-        Cevent(self, "e1_out")
-        Cevent(self, "e2_out")
+        CeventThread(self, "e1_out", self._cb_e1)
+        CeventThread(self, "e2_out", self._cb_e2)
         pause()
 
 
