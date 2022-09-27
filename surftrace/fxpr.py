@@ -227,13 +227,14 @@ class Cfxpr(object):
                 "argi num %d, which is larger than func args number %d." % (argi, len(self._func['args'])))
 
         if types == '':
+            t = self._res['type']
             if argMode != "mReg":
                 argt = ''
             elif inFlag:  # check mReg condition.
                 argt = 'u64'
-            elif self._res['type'] == 'p':
+            elif t in ('p', 'P'):
                 argt = self._func['args'][argi]
-            elif self._res['type'] == 'r':
+            elif t in ('r', "R"):
                 argt = self._func['ret']
             else:
                 raise ExprException("can not get arg type for %s" % expr)

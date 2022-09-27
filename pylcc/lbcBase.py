@@ -391,12 +391,13 @@ class ClbcBase(ClbcLoad):
 
 
 class CeventThread(Thread):
-    def __init__(self, lbc, event, cb):
+    def __init__(self, lbc, event, cb, lost=None):
         super(CeventThread, self).__init__()
         self.setDaemon(True)
         self._lbc = lbc
         self._event = event
         self._cb = cb
+        self.lost = lost
         self.start()
 
     def cb(self, cpu, data, size):
@@ -404,7 +405,7 @@ class CeventThread(Thread):
         self._cb(cpu, e)
 
     def run(self):
-        self._lbc.maps[self._event].open_perf_buffer(self.cb)
+        self._lbc.maps[self._event].open_perf_buffer(self.cb, lost=self.lost)
         self._lbc.maps[self._event].perf_buffer_poll()
 
 

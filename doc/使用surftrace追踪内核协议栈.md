@@ -58,7 +58,7 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc,  struc
 &emsp;解析每个skb对应报文三层协议成员的方法：
 
 ```bash
-surftrace 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol`
+surftrace 'p __netif_receive_skb_core proto=@(struct iphdr *)l3%0->protocol'
 ```
 &emsp;协议成员获取方法为 @(struct iphdr *)l3%0->protocol
 

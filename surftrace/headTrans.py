@@ -14,11 +14,21 @@ __author__ = 'liaozhaoyan'
 
 import struct
 import socket
+from execCmd import CexecCmd
 from .surfException import ExprException
+
+defaultHex = None
 
 
 def getValueFromStr(s, isHex=False):
-    if isHex or s.startswith('0x') or s.startswith('0X'):
+    global defaultHex
+    if defaultHex is None:
+        ver = CexecCmd().cmd('uname -r')
+        if ver.startswith("3."):
+            defaultHex = True
+        else:
+            defaultHex = False
+    if isHex or s.startswith('0x') or s.startswith('0X') or defaultHex:
         return int(s, 16)
     else:
         return int(s)

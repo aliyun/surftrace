@@ -317,8 +317,8 @@ class CmapsEvent(CeventBase):
     def __init__(self, so, name, dTypes):
         super(CmapsEvent, self).__init__(so, name)
         self.__d = dTypes['vtype']
-        self._cb = None
-        self._lostcb = None
+        self.cb = None
+        self.lostcb = None
         self.__setup_localCalls()
 
     def __setup_localCalls(self):
@@ -326,18 +326,25 @@ class CmapsEvent(CeventBase):
         self._so.lbc_event_loop.argtypes = [ct.c_int, ct.c_int]
 
     def open_perf_buffer(self, cb, lost=None):
-        self._cb = cb
+        self.cb = cb
+        self.lostcb = lost
 
-    def perf_buffer_poll(self, timeout=-1):
-        t = self
+    def perf_buffer_poll(self, timeout=-1, obj=None):
+        if obj is None:
+            obj = self
+        if not hasattr(obj, "cb"):
+            raise ValueError("object %s has no attr callback." % obj)
+
+        if not hasattr(obj, "lostcb"):
+            obj.lostcb = None
 
         def _callback(context, cpu, data, size):
-            if t._cb:
-                t._cb(cpu, data, size)
+            if obj.cb:
+                obj.cb(cpu, data, size)
 
         def _lostcb(context, cpu, count):
-            if t._lostcb:
-                t._cb(cpu, count)
+            if obj.lostcb:
+                obj.lostcb(cpu, count)
             else:
                 print("cpu%d lost %d events" % (cpu, count))
 

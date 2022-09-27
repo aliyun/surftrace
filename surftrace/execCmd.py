@@ -52,7 +52,7 @@ class CexecCmd(object):
         pass
 
     def cmd(self, cmds):
-        p = Popen(shlex.split(cmds), stdout=PIPE)
+        p = Popen(shlex.split(cmds), stdout=PIPE, stderr=PIPE)
         if sys.version_info.major == 2:
             return p.stdout.read().strip()
         else:
@@ -72,7 +72,10 @@ class CasyncCmdQue(object):
         self.__e.register(self.__p.stdout.fileno(), select.EPOLLIN)
 
     def __del__(self):
-        self.__p.kill()
+        try:
+            self.__p.kill()
+        except OSError:
+            pass
 
     def write(self, cmd):
         try:

@@ -26,6 +26,7 @@ from .regSplit import spiltInputLine
 from .dbParser import CdbParser
 from .lbcClient import ClbcClient
 from .gdbParser import CgdbParser
+from .uprobeParser import CuprobeParser
 from .fxpr import Cfxpr
 
 
@@ -36,7 +37,8 @@ class surftrace(ftrace):
                  instance="surftrace"):
         super(surftrace, self).__init__(show=show, echo=echo, instance=instance)
         self._parser = parser
-        self._probes = []
+        self._kprobes = []
+        self._uprobes = []
         self._events = []
         self._options = []
 
@@ -47,6 +49,7 @@ class surftrace(ftrace):
 
         if isinstance(args, list):
             self._fxpr = Cfxpr(parser, self._arch)
+            self._up_events = None
             self._kp_events = None
 
         self._cb = cb
@@ -74,13 +77,23 @@ class surftrace(ftrace):
     def _clearProbes(self):
         if self._show:
             return
-        for p in self._probes:
+
+        for p in self._kprobes:
             fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance \
                     + p + "/enable"
             self._echoPath(fPath, "0")
             cmd = '-:%s' % p
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
-        self._probes = []
+        self._kprobes = []
+
+        for p in self._uprobes:
+            fPath = self.baseDir + "/tracing/instances/%s/events/uprobes/" % self._instance \
+                    + p + "/enable"
+            self._echoPath(fPath, "0")
+            cmd = '-:%s' % p
+            self._echoDPath(self.baseDir + "/tracing/uprobe_events", cmd)
+        self._uprobes = []
+
         for ePath in self._events:
             fFilter = os.path.join(ePath, "filter")
             self._echoPath(fFilter, '0')
@@ -166,10 +179,23 @@ class surftrace(ftrace):
         else:
             return func
 
+    def _clearUprobe(self, name):
+        if self._up_events is None:
+            self._up_events = self._c.cmd("cat %s/tracing/uprobe_events" % self.baseDir).split('\n')
+        findStr = "%s:uprobes/%s " % (name[0], name)
+        for ev in self._up_events:
+            if ev.startswith(findStr):
+                fPath = self.baseDir + "/tracing/instances/%s/events/uprobes/" % self._instance\
+                        + name + "/enable"
+                self._echoPath(fPath, "0")
+                cmd = '-:%s' % name
+                self._echoDPath(self.baseDir + "/tracing/uprobe_events", cmd)
+                break
+
     def _clearSymbol(self, name):
         if self._kp_events is None:
             self._kp_events = self._c.cmd("cat %s/tracing/kprobe_events" % self.baseDir).split('\n')
-        findStr = "p:kprobes/%s " % name
+        findStr = "%s:kprobes/%s " % (name[0], name)
         for ev in self._kp_events:
             if ev.startswith(findStr):
                 fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/" % self._instance\
@@ -177,6 +203,7 @@ class surftrace(ftrace):
                 self._echoPath(fPath, "0")
                 cmd = '-:%s' % name
                 self._echoDPath(self.baseDir + "/tracing/kprobe_events", cmd)
+                break
 
     def __initEvents(self, i, arg):
         arg = arg.strip('\n')
@@ -190,14 +217,48 @@ class surftrace(ftrace):
 
     def _setupUprobe(self, i, res):
         t = str.lower(res['type'])
-        name = "k%d" % i
-        cmd = "%s:k%d " % (t, i)
+        name = "%s%d" % (t, i)
+        cmd = "%s:%s%d " % (t, t, i)
+        inFlag = False
+
         symbol = res['symbol']
-        pass
+        obj, func = symbol.split(":")
+        parse = CuprobeParser(obj)
+        uFxpr = Cfxpr(parse, self._arch)
+        offset = parse.funAddr(func)
+        cmd += " %s:%s" % (parse.fullObj(), offset)
+        cmd += uFxpr.expr(func, inFlag, func, res)
+
+        if not self._show:
+            self._clearUprobe(name)
+            self._echoDPath(self.baseDir + "/tracing/uprobe_events", "'" + cmd + "'")
+            self._uprobes.append(name)
+
+        if res['filter'] != "":
+            try:
+                filter = self.__checkFilter(res['filter'])
+            except Exception as e:
+                if self._echo:
+                    print(e)
+                raise InvalidArgsException('bad filter：%s' % res['filter'])
+            if self._show:
+                self.__showExpression(res['type'], cmd, filter)
+            else:
+                fPath = self.baseDir + "/tracing/instances/%s/events/uprobes/%s/filter" %\
+                        (self._instance, name)
+                self._echoFilter(fPath, "'%s'" % filter)
+                fPath = self.baseDir + "/tracing/instances/%s/events/uprobes/" % self._instance + name + "/enable"
+                self._echoPath(fPath, "1")
+        else:
+            if self._show:
+                self.__showExpression(res['type'], cmd)
+            else:
+                fPath = self.baseDir + "/tracing/instances/%s/events/uprobes/" % self._instance + name + "/enable"
+                self._echoPath(fPath, "1")
 
     def _setupKprobe(self, i, res):
-        name = "k%d" % i
-        cmd = "%s:k%d " % (res['type'], i)
+        name = "%s%d" % (res['type'], i)
+        cmd = "%s:%s%d " % (res['type'], res['type'], i)
         symbol = res['symbol']
         inFlag = False
 
@@ -212,7 +273,7 @@ class surftrace(ftrace):
         if not self._show:
             self._clearSymbol(name)
             self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + cmd + "'")
-            self._probes.append(name)
+            self._kprobes.append(name)
         if res['filter'] != "":
             try:
                 filter = self.__checkFilter(res['filter'])
@@ -329,7 +390,7 @@ class surftrace(ftrace):
         resFxpr = self._splitFxpr(res['fxpr'])
 
         self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + resFxpr['fxpr'] + "'")
-        self._probes.append(resFxpr['name'])
+        self._kprobes.append(resFxpr['name'])
         if res['filter'] != "":
             fPath = self.baseDir + "/tracing/instances/%s/events/kprobes/%s/filter" % (self._instance, resFxpr['name'])
             self._echoFilter(fPath, "'%s'" % res['filter'])
