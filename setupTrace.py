@@ -13,15 +13,15 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.7.5'
+VERSION = '0.7.6'
 
 import sys
 from setuptools import setup, find_packages
 
 if sys.version_info.major == 2:
-    reqLists = ["certifi==2017.4.17", "pip==20.3.4", "requests"]
+    reqLists = ["certifi==2017.4.17", "pip==20.3.4", "requests", "quickSvg>=0.1.6"]
 else:
-    reqLists = ["requests"]
+    reqLists = ["requests", "quickSvg>=0.1.6"]
 
 setup(name='surftrace',
       version=VERSION,
@@ -53,6 +53,7 @@ setup(name='surftrace',
           'console_scripts': [
               "surftrace = surftrace.surftrace:main",
               "kobuild = surftrace.kobuild:main",
+              "surfGraph = surftrace.surfGraph:main",
           ]
       }
       )

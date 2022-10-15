@@ -187,6 +187,32 @@ class PerfEventReadFormat:
     MAX = GROUP
 
 
+class PerfBreakPointLen:
+    LEN_1 = 1
+    LEN_2 = 2
+    LEN_3 = 3
+    LEN_4 = 4
+    LEN_5 = 5
+    LEN_6 = 6
+    LEN_7 = 7
+    LEN_8 = 8
+
+
+class PerfBreakPointType:
+    EMPTY = 0
+    R = 1
+    W = 2
+    RW = 3
+    X = 4
+
+
+class PerfFlag:
+    FD_NO_GROUP = (1 << 0)
+    FD_OUTPUT = (1 << 1)
+    PID_CGROUP = (1 << 2)
+    FD_CLOEXEC = (1 << 3)
+
+
 PERF_ATTR_SIZE_VER0 = 64    # /* sizeof first published struct */
 PERF_ATTR_SIZE_VER1 = 72    # /* add: config2 */
 PERF_ATTR_SIZE_VER2 = 84    # /* add: branch_sample_type */

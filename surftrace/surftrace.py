@@ -74,6 +74,13 @@ class surftrace(ftrace):
             return self._c.cmd('uname -m').strip()
         return arch
 
+    def _setupTracer(self):
+        if self._show:
+            return
+
+        Path = self.baseDir + "/tracing/instances/%s/current_tracer" % self._instance
+        self._echoPath(Path, "nop")
+
     def _clearProbes(self):
         if self._show:
             return
@@ -316,20 +323,6 @@ class surftrace(ftrace):
 
         self._setupStack()
 
-    def _checkAvailable(self, name):
-        cmd = "cat " + self.baseDir + "/tracing/available_filter_functions |grep " + name
-        ss = self._c.system(cmd).strip()
-        for res in ss.split('\n'):
-            if ':' in res:
-                res = res.split(":", 1)[1]
-            if ' [' in res:  #for ko symbol
-                res = res.split(" [", 1)[0]
-            if res == name:
-                return res
-            elif res.startswith("%s.isra" % name) or res.startswith("%s.part" % name):
-                return res
-        return None
-
     def _cbLine(self, line):
         print("%s" % line)
 
@@ -386,7 +379,7 @@ class surftrace(ftrace):
     def _initFxpr(self, i, res):
         if res['type'] == 'e':
             res['symbol'] = res['fxpr']
-            return self.__setupEvent(res)
+            return self._setupEvent(res)
         resFxpr = self._splitFxpr(res['fxpr'])
 
         self._echoDPath(self.baseDir + "/tracing/kprobe_events", "'" + resFxpr['fxpr'] + "'")
@@ -414,6 +407,7 @@ class surftrace(ftrace):
         self._setupStack()
 
     def start(self):
+        self._setupTracer()
         if isinstance(self._args, list):
             self._setupEvents()
         elif isinstance(self._args, dict):
@@ -456,7 +450,7 @@ examples = """examples:"""
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Trace ftrace kprobe events.",
+        description="Trace ftrace kprobe uprobe events.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=examples
     )

@@ -73,15 +73,33 @@ class ftrace(object):
                 raise InvalidArgsException("mount debugfs failed.")
         return s.split(' ')[2]
 
+    def _checkAvailable(self, name):
+        cmd = "cat " + self.baseDir + "/tracing/available_filter_functions |grep " + name
+        ss = self._c.system(cmd).strip()
+        for res in ss.split('\n'):
+            if ':' in res:
+                res = res.split(":", 1)[1]
+            if ' [' in res:  #for ko symbol
+                res = res.split(" [", 1)[0]
+            if res == name:
+                return res
+            elif res.startswith("%s.isra" % name) or res.startswith("%s.part" % name):
+                return res
+        return None
+
     def _checkIsEmpty(self):
-        if not os.path.exists(self.baseDir + '/tracing/instances/' + self._instance):
+        if self._instance and not os.path.exists(self.baseDir + '/tracing/instances/' + self._instance):
             os.mkdir(self.baseDir + '/tracing/instances/' + self._instance)
         return
 
     def tracePre(self, buffSize=2048):
-        pBuffersize = self.baseDir + "/tracing/instances/%s/buffer_size_kb" % self._instance
+        if self._instance:
+            pBuffersize = self.baseDir + "/tracing/instances/%s/buffer_size_kb" % self._instance
+            pTrace = self.baseDir + "/tracing/instances/%s/trace" % self._instance
+        else:
+            pBuffersize = self.baseDir + "/tracing/buffer_size_kb"
+            pTrace = self.baseDir + "/tracing/trace"
         self._echoPath(pBuffersize, "%d" % buffSize)
-        pTrace = self.baseDir + "/tracing/instances/%s/trace" % self._instance
         self._echoPath(pTrace)
 
     def _transEcho(self, value):
@@ -94,8 +112,11 @@ class ftrace(object):
         if self._echo:
             print(cmd)
 
-        fd = os.open(path, os.O_WRONLY)
         v = self._transEcho(value)
+        if v == "":
+            self._c.system("echo > %s" % path)
+            return
+        fd = os.open(path, os.O_WRONLY)
         try:
             os.write(fd, v.encode())
         except OSError as e:
@@ -138,11 +159,17 @@ class ftrace(object):
         return 0
 
     def __stopTracing(self):
-        pOn = self.baseDir + "/tracing/instances/%s/tracing_on" % self._instance
+        if self._instance:
+            pOn = self.baseDir + "/tracing/instances/%s/tracing_on" % self._instance
+        else:
+            pOn = self.baseDir + "/tracing/tracing_on"
         self._echoPath(pOn, "0")
 
     def _start(self):
-        pOn = self.baseDir + "/tracing/instances/%s/tracing_on" % self._instance
+        if self._instance:
+            pOn = self.baseDir + "/tracing/instances/%s/tracing_on" % self._instance
+        else:
+            pOn = self.baseDir + "/tracing/tracing_on"
         self._echoPath(pOn, "1")
         self._stopHook.insert(0, self.__stopTracing)
         signal.signal(signal.SIGINT, self.signalHandler)
@@ -150,7 +177,13 @@ class ftrace(object):
     def start(self):
         self._single = True
         self._start()
-        pipe = self.baseDir + "/tracing/instances/%s/trace_pipe" % self._instance
+        if self._instance:
+            pipe = self.baseDir + "/tracing/instances/%s/trace_pipe" % self._instance
+            trace = self.baseDir + "/tracing/instances/%s/trace" % self._instance
+        else:
+            pipe = self.baseDir + "/tracing/trace_pipe"
+            trace = self.baseDir + "/tracing/trace"
+        self._c.cmd("echo > %s" % trace)
         if hasattr(self, "_cbOrig"):
             self.pipe = CasyncPipe(pipe, self._cbOrig)
         else:

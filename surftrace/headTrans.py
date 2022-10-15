@@ -14,10 +14,17 @@ __author__ = 'liaozhaoyan'
 
 import struct
 import socket
-from execCmd import CexecCmd
+from .execCmd import CexecCmd
 from .surfException import ExprException
 
 defaultHex = None
+
+
+def _getValueFromStr(s, isHex):
+    if isHex or s.startswith('0x') or s.startswith('0X'):
+        return int(s, 16)
+    else:
+        return int(s)
 
 
 def getValueFromStr(s, isHex=False):
@@ -28,10 +35,7 @@ def getValueFromStr(s, isHex=False):
             defaultHex = True
         else:
             defaultHex = False
-    if isHex or s.startswith('0x') or s.startswith('0X') or defaultHex:
-        return int(s, 16)
-    else:
-        return int(s)
+    return _getValueFromStr(s, isHex or defaultHex)
 
 
 def _headSplit(head):
@@ -78,7 +82,7 @@ def invHeadTrans(head, var):  #为 filter 翻转
         varStr = "0x%x" % varInt
     else:
         t, pt = _headSplit(h)
-        varInt = getValueFromStr(var, t == "B")
+        varInt = _getValueFromStr(var, t == "B")
         varInt = struct.unpack(pt, struct.pack('>' + pt, varInt))
         if t == "B":
             varStr = "%x" % varInt

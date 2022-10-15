@@ -40,7 +40,7 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 ​&emsp;使用surftrace，需要满足以下条件：
 
-- 1. 公开发行版linux内核，支持目录参考：http://pylcc.openanolis.cn/version/  （持续更新）
+- 1. 公开发行版linux内核，支持目录清单参考：http://mirrors.openanolis.cn/coolbpf/db/  （持续更新）
 - 2. 内核支持ftrace，已配置了debugfs，root权限；
 - 3. Python2 >= 2.7; Python3 >= 3.5，已安装pip；
 
@@ -504,6 +504,64 @@ echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
  
 &emsp;此时surftrace会优先检索prev.db中的数据，检索失败后才会进行远端/本地搜索结构信息。
 
+## 2.8、符号调用过程追踪（surfGraph/function_graph）
+&emsp;调用过程追踪(surfGraph)可以将一个内核函数的内部调用流程和各个阶段耗时直观呈现出来。对一下场景尤为有帮助：
+
+1. 了解函数调用关系；
+2. 定位内核性能问题；
+
+&emsp;注意事项和使用约束：
+
+1. 目标符号在内核符号范围内
+2. 全局追踪，不支持过滤器
+3. 高频调用的符号会消耗较高的cpu资源，可能导致追踪失败。
+
+### 2.8.1、命令说明
+
+```
+usage: surfGraph [-h] [-f FUNCTION] [-m MODE] [-s STEP] [-o OUTPUT]
+
+kernel function call graph tool.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FUNCTION, --function FUNCTION
+                        set function to call graph.
+  -m MODE, --mode MODE  set output mode, support svg(default)/tree/walk/raw
+  -s STEP, --step STEP  write file by every step, only for svg mode.
+  -o OUTPUT, --output OUTPUT
+                        save trees to *.tree file, 32 max
+
+examples: surfGraph -f __do_fault
+```
+
+### 2.8.2、使用示例
+&emsp;以追踪 __do_fault 符号为例，在环境下执行以下命令：
+
+```
+#surfGraph -f __do_fault
+echo nop > /sys/kernel/debug/tracing/current_tracer
+echo __do_fault > /sys/kernel/debug/tracing/set_graph_function
+echo function_graph > /sys/kernel/debug/tracing/current_tracer
+echo 1 > /sys/kernel/debug/tracing/tracing_on
+save __do_fault-1.svg
+save __do_fault-2.svg
+save __do_fault-3.svg
+save __do_fault-4.svg
+……
+save __do_fault-241.svg
+^Csave __do_fault-242.svg
+echo 0 > /sys/kernel/debug/tracing/tracing_on
+echo  > /sys/kernel/debug/tracing/set_graph_function
+write __do_fault.svg
+```
+
+&emsp;此时会在命令所在目录生成符号对应的火焰图文件。单个火焰图的文件格式为[symbol]-[serial].svg，总火焰图文件格式为 [symbol].svg。任意一次火焰图的效果：
+
+![graph](ReadMe.assets/callGraph.jpg)
+
+&emsp;总火焰图
+![graphs](ReadMe.assets/callGraphs.jpg)
 
 # 3、surfGuide 使用
 
