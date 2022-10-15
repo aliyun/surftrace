@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 -------------------------------------------------
-   File Name：     attach.py
+   File Name：     testUprobe
    Description :
    Author :       liaozhaoyan
-   date：          2022/6/15
+   date：          2022/10/16
 -------------------------------------------------
    Change Activity:
-                   2022/6/15:
+                   2022/10/16:
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
@@ -18,12 +18,10 @@ from pylcc.lbcBase import ClbcBase
 bpfPog = r"""
 #include "lbc.h"
 
-SEC("kprobe/*")
-int j_wake_up_new_task2(struct pt_regs *ctx)
+SEC("uprobe/*")
+int call_symbol(struct pt_regs *ctx)
 {
-    struct task_struct* parent = (struct task_struct *)PT_REGS_PARM1(ctx);
-
-    bpf_printk("hello attach, parent: %d\n", _(parent->tgid));
+    bpf_printk("catch uprobe.\n");
     return 0;
 }
 
@@ -31,13 +29,15 @@ char _license[] SEC("license") = "GPL";
 """
 
 
-class Cattach(ClbcBase):
+class CtestUprobe(ClbcBase):
     def __init__(self):
-        super(Cattach, self).__init__("attach", bpf_str=bpfPog, attach=0)
-        self.attachKprobe("j_wake_up_new_task2", "wake_up_new_task")
+        super(CtestUprobe, self).__init__("tUprobe", bpf_str=bpfPog, attach=0)
+
+        self.attachUprobe("call_symbol", -1, "/usr/bin/bash", 0x8a870)
         pause()
 
 
 if __name__ == "__main__":
-    attach = Cattach()
+    CtestUprobe()
     pass
+

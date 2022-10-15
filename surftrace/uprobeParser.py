@@ -42,20 +42,24 @@ class CuprobeParser(CgdbParser):
         raise ValueError("file has not LOAD off segments.")
 
     def _setupObj(self, obj):
-        if '/' in obj:
+        if obj.startswith('/'):  # abs path
             if os.path.exists(obj):
                 res = os.path.abspath(obj)
             else:
                 raise InvalidArgsException("can not find file %s." % obj)
-        else:
-            cmd = CexecCmd()
-            res = cmd.cmd("which %s" % obj)
-            if res == "":
-                try:
-                    res = self._findLib(obj)
-                    print(res)
-                except KeyError:
-                    raise InvalidArgsException("can not find lib %s" % obj)
+        else:   # relative
+            res = os.path.join(os.getcwd(), obj)  # pwd
+            if os.path.isfile(res):
+                pass
+            else:
+                cmd = CexecCmd()
+                res = cmd.cmd("which %s" % obj)   # find cmd in path
+                if res == "":
+                    try:
+                        res = self._findLib(obj)   # find so from libs.
+                        print(res)
+                    except KeyError:
+                        raise InvalidArgsException("can not find lib %s" % obj)
         return res
 
     def _loadLib(self):

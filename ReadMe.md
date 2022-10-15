@@ -565,6 +565,179 @@ write __do_fault.svg
 ![graphs](ReadMe.assets/callGraphs.jpg)
 
 
+## 2.9 用户态追踪 uprobe
+&emsp;uprobe是和kprobe类似的调试手段，用于追踪用户态符号调用状况，当然也可以深入符号内部进行追踪，与kprobe基本一致。注意事项如下：
+
+1. 依赖于readelf命令，需要安装 binutils 包；
+2. 符号参数解析依赖于高版本的gdb，建议从 http://100.82.20.22/gdb/ 下载 最新版本；
+
+&emsp;支持命令列表：
+
+* P: 追踪函数入口，支持符号内部追踪；
+* R：追踪函数返回点，
+
+### 2.9.1、命令追踪
+&emsp;追踪 bash  调用readline 函数
+
+```
+#surftrace 'P bash:readline'
+echo nop > /sys/kernel/debug/tracing/instances/surftrace/current_tracer
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo -:p0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 'p:p0  /usr/bin/bash:0x8a870' >> /sys/kernel/debug/tracing/uprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-114811 [002] d... 14628569.434360: p0: (0x48a870)
+ <...>-114811 [002] d... 14628571.197338: p0: (0x48a870)
+ <...>-114811 [002] d... 14628572.361030: p0: (0x48a870)
+^Cecho 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo -:p0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+```
+
+&emsp; 设置过滤器，过滤进程：
+
+```
+surftrace 'P bash:readline f:common_pid==114811'
+echo nop > /sys/kernel/debug/tracing/instances/surftrace/current_tracer
+echo 'p:p0  /usr/bin/bash:0x8a870' >> /sys/kernel/debug/tracing/uprobe_events
+echo 'common_pid==114811' > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/filter
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-114811 [000] d... 14628883.768443: p0: (0x48a870)
+ <...>-114811 [000] d... 14628893.438465: p0: (0x48a870)
+^Cecho 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo -:p0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+```
+
+&emsp;获取返回值，并打印
+
+```
+surftrace 'R bash:readline cmd=!(char *)$retval'
+echo nop > /sys/kernel/debug/tracing/instances/surftrace/current_tracer
+echo 'r:r0  /usr/bin/bash:0x8a870 cmd=+0x0($retval):string' >> /sys/kernel/debug/tracing/uprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-114811 [000] d... 14629155.134831: r0: (0x41e66a <- 0x48a870) cmd="top"
+ <...>-114811 [000] d... 14629159.092198: r0: (0x41e66a <- 0x48a870) cmd="ps"
+ <...>-114811 [000] d... 14629167.728730: r0: (0x41e66a <- 0x48a870) cmd="ifconfig"
+^Cecho 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r0/enable
+echo -:r0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+```
+
+### 2.9.2、so 追踪
+
+&emsp;追踪libc中sleep 函数，并打印sleep 时间
+
+```
+#surftrace 'P libc:sleep t=%0'
+echo nop > /sys/kernel/debug/tracing/instances/surftrace/current_tracer
+/lib64/libc-2.17.so
+echo 'p:p0  /lib64/libc-2.17.so:0xc4c60 t=%di:u32' >> /sys/kernel/debug/tracing/uprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-117611 [003] d... 14629434.944287: p0: (0x7fc9bfe3cc60) t=1
+ <...>-117611 [003] d... 14629435.944483: p0: (0x7fc9bfe3cc60) t=1
+ <...>-117611 [003] d... 14629436.944646: p0: (0x7fc9bfe3cc60) t=1
+ <...>-117611 [003] d... 14629437.944852: p0: (0x7fc9bfe3cc60) t=1
+ <...>-117611 [003] d... 14629438.945000: p0: (0x7fc9bfe3cc60) t=1
+^Cecho 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo -:p0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+```
+
+&emsp;获取libc 中 fopen函数并过滤返回值
+
+```
+surftrace 'R libc:fopen file=$retval f:file==0'
+echo nop > /sys/kernel/debug/tracing/instances/surftrace/current_tracer
+/lib64/libc-2.17.so
+echo 'r:r0  /lib64/libc-2.17.so:0x6eb40 file=$retval' >> /sys/kernel/debug/tracing/uprobe_events
+echo 'file==0' > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r0/filter
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r0/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-69760 [003] d... 14629691.970192: r0: (0x556be9a166ff <- 0x7f8e38270b40) file=0x0
+ <...>-69760 [003] d... 14629691.970241: r0: (0x556be9a132ea <- 0x7f8e38270b40) file=0x0
+^Cecho 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r0/enable
+echo -:r0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+```
+### 2.9.3、追踪自己编译的二进制
+
+&emsp;以下是自定义的C语言代码，一个非常简单的结构体和函数调用实现
+
+```
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+struct uprobe_def{
+    int a;
+    int b;
+};
+
+int func(int v, struct uprobe_def* ud) {
+    printf("show %d, a: %d, b:%d\n", v, ud->a, ud->b);
+    return v;
+}
+
+int main(void) {
+    int i;
+    struct uprobe_def ud = {1, 1};
+    printf("hello, uprobe. %d\n", getpid());
+    sleep(1);
+    for (i = 1; i < 1000; i ++){
+        ud.a = i * 2;
+        ud.b = i * 3;
+        func(i, &ud);
+        sleep(1);
+    }
+    return 0;
+}
+```
+
+&emsp;编译成二进制，注意要添加-g 选项，否则无法解析符号
+
+```
+gcc tuprobe.c -o tuprobe -g
+```
+
+&emsp;追踪函数入参和返回值
+
+```
+surftrace 'P tuprobe:func v=%0 a=%1->a b=%1->b' 'R tuprobe:func v=$retval'
+echo nop > /sys/kernel/debug/tracing/instances/surftrace/current_tracer
+echo 'p:p0  /root/1ext/code/surftrace/tests/uprobe/tuprobe:0x5bd v=%di:u32 a=+0x0(%si):u32 b=+0x4(%si):u32' >> /sys/kernel/debug/tracing/uprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo 'r:r1  /root/1ext/code/surftrace/tests/uprobe/tuprobe:0x5bd v=$retval' >> /sys/kernel/debug/tracing/uprobe_events
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r1/enable
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
+echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+ <...>-124305 [000] d... 14634026.257596: p0: (0x4005bd) v=1 a=2 b=3
+ <...>-124305 [000] d... 14634026.258737: r1: (0x400656 <- 0x4005bd) v=0x1
+ <...>-124305 [000] d... 14634027.259074: p0: (0x4005bd) v=2 a=4 b=6
+ <...>-124305 [000] d... 14634027.259142: r1: (0x400656 <- 0x4005bd) v=0x2
+ <...>-124305 [000] d... 14634028.259265: p0: (0x4005bd) v=3 a=6 b=9
+ <...>-124305 [000] d... 14634028.259371: r1: (0x400656 <- 0x4005bd) v=0x3
+ <...>-124305 [000] d... 14634029.259468: p0: (0x4005bd) v=4 a=8 b=12
+ <...>-124305 [000] d... 14634029.259534: r1: (0x400656 <- 0x4005bd) v=0x4
+^Cecho 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/p0/enable
+echo -:p0 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/events/uprobes/r1/enable
+echo -:r1 >> /sys/kernel/debug/tracing/uprobe_events
+echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
+```
+
+
 # 3、surfGuide 使用
 
 ​&emsp;surfGuide可以直接运行，命令行已经有一些使用帮助提示。现在手头任务紧张，等有空了再补充完善吧。
@@ -925,7 +1098,7 @@ if __name__ == "__main__":
 ### 6.3.8 编译宏定义：
 &emsp;可以参考6.3.7的方法传入编译宏，这里不再举例。
 
-### 6.3.8 attach probe:
+### 6.3.9 attach probe:
 
 ```python
 import time
@@ -975,6 +1148,52 @@ def attachRawTracepoint(self, function, name):
 def attachCgroup(self, function, fd):
 def attachNetns(self, function, fd):
 def attachXdp(self, function, ifindex):
+```
+
+### 6.3.10、uprobe
+&emsp;uprobe 关键是需要获取到 binaryPath、offset 这两个参数，现阶段可以通过surftrace 命令获取，参考2.9.1节，可以获取到环境中 bash readline对应参数是 "/usr/bin/bash", 0x8a870，故对应代码如下：
+
+```
+from signal import pause
+from pylcc.lbcBase import ClbcBase
+
+bpfPog = r"""
+#include "lbc.h"
+
+SEC("uprobe/*")
+int call_symbol(struct pt_regs *ctx)
+{
+    bpf_printk("catch uprobe.\n");
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+"""
+
+
+class CtestUprobe(ClbcBase):
+    def __init__(self):
+        super(CtestUprobe, self).__init__("tUprobe", bpf_str=bpfPog, attach=0)
+
+        self.attachUprobe("call_symbol", -1, "/usr/bin/bash", 0x8a870)
+        pause()
+
+
+if __name__ == "__main__":
+    CtestUprobe()
+    pass
+```
+
+&emsp;通过 /sys/kernel/debug/tracing/trace_pipe 获取捕捉结果：
+
+```
+cat /sys/kernel/debug/tracing/trace_pipe
+           <...>-114811 [000] .... 14635188.986989: 0: catch uprobe.
+           <...>-113536 [000] .... 14635755.051790: 0: catch uprobe.
+           <...>-113536 [001] .... 14635755.485620: 0: catch uprobe.
+           <...>-113536 [001] .... 14635755.685864: 0: catch uprobe.
+           <...>-113536 [001] .... 14635755.853171: 0: catch uprobe.
+           <...>-113536 [001] .... 14635756.068934: 0: catch uprobe.
 ```
 
 
