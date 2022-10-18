@@ -1196,6 +1196,90 @@ cat /sys/kernel/debug/tracing/trace_pipe
            <...>-113536 [001] .... 14635756.068934: 0: catch uprobe.
 ```
 
+### 6.3.11 追踪java应用
+
+&emsp;pylcc 可以监控java 符号级别的追踪，并可以追踪到部分传参的情况。以下面代码为例：
+
+```
+import java.io.*;
+import pack.bel;
+
+public class test {
+	public static void square_test(int i) {
+		System.out.print("val is ");
+		System.out.println(i * i);
+	}
+
+	public static void main(String[] args) {
+		bel b = new bel();
+		while (true) {
+			try {
+        			Thread.currentThread().sleep(1000);
+        		} catch (InterruptedException e) {
+            			e.printStackTrace();
+        		}
+			square_test(99);
+			System.out.println(b.po);
+			b.bel_test();
+		}
+	}
+}
+```
+&emsp;要追踪square_test 函数调用以及入参，pylcc 代码实现如下：
+
+```
+__author__ = 'liaozhaoyan'
+
+import sys
+from signal import pause
+from pylcc.lbcBase import ClbcBase
+
+bpfPog = r"""
+#include "lbc.h"
+
+SEC("perf_event")
+int bpf_prog(struct bpf_perf_event_data *ctx)
+{
+    bpf_printk("java function probe. arg1 :%d\n", ctx->regs.si);
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+"""
+
+
+class CjavaProbe(ClbcBase):
+    def __init__(self, pid, sym):
+        super(CjavaProbe, self).__init__("perfBp", bpf_str=bpfPog)
+        self.attachJavaSym("bpf_prog", pid, sym)
+
+    def loop(self):
+        pause()
+
+
+if __name__ == "__main__":
+    j = CjavaProbe(int(sys.argv[1]), sys.argv[2])
+    j.loop()
+    pass
+```
+
+&emsp;在目标运行环境下 执行
+
+```
+python javaProbe.py 71236 "Ltest;::square_test"
+```
+&emsp;其中 71236 为java进程pid，后面为要追踪的java函数。查看trace_pipe，可以获取到以下信息：
+
+```
+           <...>-71237 [002] d... 14841309.908057: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841310.908244: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841311.908425: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841312.908611: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841313.908790: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841314.909012: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841315.909238: 0: java function probe. arg1 :99
+           <...>-71237 [002] d... 14841316.909423: 0: java function probe. arg1 :99
+```
 
 ## 6.4 pylcc 与 bcc 对比性能优势
 
