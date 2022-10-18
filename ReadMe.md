@@ -1196,7 +1196,7 @@ cat /sys/kernel/debug/tracing/trace_pipe
            <...>-113536 [001] .... 14635756.068934: 0: catch uprobe.
 ```
 
-### 6.3.11 追踪java应用
+### 6.3.11 追踪java应用(0.2.19支持)
 
 &emsp;pylcc 可以监控java 符号级别的追踪，并可以追踪到部分传参的情况。以下面代码为例：
 
