@@ -26,6 +26,7 @@ from pylcc.lbcMaps import mapsDict
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
 from surftrace.lbcClient import ClbcClient, segDecode
+from surftrace.uprobeParser import CuprobeParser
 from pylcc.lbcInclude import ClbcInclude
 from pylcc.perfEvent import *
 
@@ -404,9 +405,12 @@ class ClbcBase(ClbcLoad):
             raise InvalidArgsException("attach %s to uprobe %s failed." % (function, binaryPath))
 
     def attachUprobes(self, function, pid, binaryPath, offset=0):
-        p = psutil.Process(pid)
-        for pthread in p.threads():
-            self.attachUprobe(function, pthread.id, binaryPath, offset)
+        if pid > 0:
+            p = psutil.Process(pid)
+            for pthread in p.threads():
+                self.attachUprobe(function, pthread.id, binaryPath, offset)
+        else:
+            self.attachUprobe(function, pid, binaryPath, offset)
 
     def attachUretprobe(self, function, pid, binaryPath, offset=0):
         res = self._so.lbc_attach_uretprobe(function, pid, binaryPath, offset)
@@ -414,9 +418,26 @@ class ClbcBase(ClbcLoad):
             raise InvalidArgsException("attach %s to uretprobe %s failed." % (function, binaryPath))
 
     def attachUretprobes(self, function, pid, binaryPath, offset=0):
-        p = psutil.Process(pid)
-        for pthread in p.threads():
-            self.attachUretprobe(function, pthread.id, binaryPath, offset)
+        if pid > 0:
+            p = psutil.Process(pid)
+            for pthread in p.threads():
+                self.attachUretprobe(function, pthread.id, binaryPath, offset)
+        else:
+            self.attachUretprobe(function, pid, binaryPath, offset)
+
+    def traceUprobes(self, function, pid, fxpr):
+        binaryPath, func = fxpr.split(":", 1)
+        parser = CuprobeParser(binaryPath)
+        fullPath = parser.fullObj()
+        offset = parser.funAddr(func)
+        self.attachUprobes(function, pid, fullPath, offset)
+
+    def traceUretprobes(self, function, pid, fxpr):
+        binaryPath, func = fxpr.split(":", 1)
+        parser = CuprobeParser(binaryPath)
+        fullPath = parser.fullObj()
+        offset = parser.funAddr(func)
+        self.attachUretprobes(function, pid, fullPath, offset)
 
     def attachTracepoint(self, function, category, name):
         res = self._so.lbc_attach_tracepoint(function, category, name)

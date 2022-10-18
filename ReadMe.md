@@ -1196,6 +1196,41 @@ cat /sys/kernel/debug/tracing/trace_pipe
            <...>-113536 [001] .... 14635756.068934: 0: catch uprobe.
 ```
 
+&emsp;为了加速开发，可以采用traceUprobes这个api，编码习惯更接近surftrace
+
+```
+from signal import pause
+from pylcc.lbcBase import ClbcBase
+
+bpfPog = r"""
+#include "lbc.h"
+
+SEC("uprobe/*")
+int call_symbol(struct pt_regs *ctx)
+{
+    bpf_printk("catch uprobe.\n");
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+"""
+
+
+class CtraceUprobe(ClbcBase):
+    def __init__(self):
+        super(CtraceUprobe, self).__init__("traceUprobe", bpf_str=bpfPog, attach=0)
+
+        self.traceUprobes("call_symbol", -1, "bash:readline")
+        pause()
+
+
+if __name__ == "__main__":
+    CtraceUprobe()
+    pass
+
+```
+效果是一样的。
+
 ### 6.3.11 追踪java应用(0.2.19支持)
 
 &emsp;pylcc 可以监控java 符号级别的追踪，并可以追踪到部分传参的情况。以下面代码为例：
