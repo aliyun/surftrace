@@ -536,7 +536,7 @@ examples: surfGraph -f __do_fault
 ```
 
 ### 2.8.2、使用示例
-&emsp;以追踪 __do_fault 符号为例，在环境下执行以下命令：
+&emsp;以追踪 \_\_do\_fault 符号为例，在环境下执行以下命令：
 
 ```
 #surfGraph -f __do_fault
@@ -563,6 +563,8 @@ write __do_fault.svg
 &emsp;总火焰图
 
 ![graphs](ReadMe.assets/callGraphs.jpg)
+
+&emsp;Tips:由于python3.6（不含）之前的版本字典没有保序，因此生成的单火焰图平行的符号并没有确定的先后关系。如果需要明确的函数先后调用关系，建议在python3.6版本上使用该功能。
 
 
 ## 2.9 用户态追踪 uprobe
@@ -1139,10 +1141,18 @@ if __name__ == "__main__":
 &emsp;attach api 列表如下：
 
 ```
+def attachPerfEvent(self, function, attrD, pid=0, cpu=-1, group_fd=-1, flags=0):
+def attachAllCpuPerf(self, function, attrD, pid=-1, group_fd=-1, flags=0):
+def attachPerfEvents(self, function, attrD, pid, group_fd=-1, flags=0):
+def attachJavaSym(self, function, pid, symbol):
 def attachKprobe(self, function, symbol):
 def attachKretprobe(self, function, symbol):
 def attachUprobe(self, function, pid, binaryPath, offset=0):
+def attachUprobes(self, function, pid, binaryPath, offset=0):
 def attachUretprobe(self, function, pid, binaryPath, offset=0):
+def attachUretprobes(self, function, pid, binaryPath, offset=0):
+def traceUprobes(self, function, pid, fxpr):
+def traceUretprobes(self, function, pid, fxpr):
 def attachTracepoint(self, function, category, name):
 def attachRawTracepoint(self, function, name):
 def attachCgroup(self, function, fd):
