@@ -1,0 +1,57 @@
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include "proc_def.h"
+
+#define PROC_PATH "coolbpf"
+
+static int sys_high_show(struct seq_file *m, void *ptr)
+{
+	seq_printf(m, "%llu\n", 0ULL);
+	return 0;
+}
+
+static ssize_t __attribute__((optimize("O0"))) sys_high_store(void *priv, const char __user *buf, size_t count)
+{
+	u64 val;
+	u64 i, j;
+
+	if (kstrtou64_from_user(buf, count, 0, &val))
+		return -EINVAL;
+
+	for (i = 0; i < val; i ++)
+	    for (j = 0; j < val; j ++);
+	return count;
+}
+
+DEFINE_PROC_ATTRIBUTE_RW(sys_high);
+
+static int __init sys_high_init(void)
+{
+	int ret;
+	struct proc_dir_entry *root_dir = NULL;
+
+	root_dir = proc_mkdir(PROC_PATH, NULL);
+	if (!root_dir) {
+		ret = -ENOMEM;
+	}
+
+	if (!proc_create("sys_high", S_IRUSR | S_IWUSR, root_dir,
+			 &sys_high_fops)){
+		ret = -ENOMEM;
+		goto remove_proc;
+	}
+	return 0;
+
+remove_proc:
+	remove_proc_subtree(PROC_PATH, NULL);
+	return -ret;
+}
+
+static void __exit sys_high_exit(void)
+{
+	remove_proc_subtree(PROC_PATH, NULL);
+}
+
+module_init(sys_high_init);
+module_exit(sys_high_exit);
+MODULE_LICENSE("GPL");

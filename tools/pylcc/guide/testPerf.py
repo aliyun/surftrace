@@ -12,7 +12,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-import time
+from signal import pause
 from pylcc.lbcBase import ClbcBase
 from pylcc.perfEvent import *
 
@@ -42,8 +42,7 @@ class CtestPerf(ClbcBase):
             "config": PerfSwIds.PAGE_FAULTS,
         }
         self.attachPerfEvent("bpf_prog", pfConfig)
-        while True:
-            time.sleep(1)
+        pause()
 
 
 if __name__ == "__main__":
