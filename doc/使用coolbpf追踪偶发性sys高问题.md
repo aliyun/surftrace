@@ -53,7 +53,7 @@ python perfSys -g 10 -i 3 -s 3 -f 200
 &emsp;我们采用注入ko的方法向内核注入sys，注入代码[参考](https://gitee.com/anolis/surftrace/tree/master/tools/module/sysHigh)，执行inject 以后，sys会直接冲高到60%。
 
 ## 3.2、结果验证：
-&emsp;可以在故障注入前执行 python perfSys，此时如果sys 不高于门限，不会输出svg。注入sys高后，即可生成svg文件，文件名为sys高产生的时间点，火焰图标题 sysHigh for cpu x:x:x，cpu号用冒号隔开。
+&emsp;可以在故障注入前执行 python perfSys，此时如果sys 不高于门限，不会输出svg。注入sys高后，即可生成svg文件，文件名为sys高产生的时间点，火焰图标题 sysHigh for cpu x\:x\:x，cpu号用冒号隔开。
 [参考结果](https://gitee.com/anolis/surftrace/tree/master/tools/module/sysHigh20221020_145252.svg)
 
 
