@@ -13,7 +13,6 @@
 __author__ = 'liaozhaoyan'
 
 from pylcc.lbcBase import ClbcBase, CeventThread
-from signal import pause
 
 bpfPog = r"""
 #include "lbc.h"
@@ -79,7 +78,7 @@ class CmulitEvent(ClbcBase):
     def loop(self):
         CeventThread(self, "e1_out", self._cb_e1)
         CeventThread(self, "e2_out", self._cb_e2)
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

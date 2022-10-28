@@ -12,7 +12,6 @@
 """
 __author__ = 'liaozhaoyan'
 
-from signal import pause
 from pylcc.lbcBase import ClbcBase
 
 bpfPog = r"""
@@ -34,7 +33,7 @@ class CtestUprobe(ClbcBase):
         super(CtestUprobe, self).__init__("tUprobe", bpf_str=bpfPog, attach=0)
 
         self.attachUprobe("call_symbol", -1, "/usr/bin/bash", 0x8a870)
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

@@ -16,30 +16,22 @@ import re
 import os
 from .execCmd import CexecCmd
 from .gdbParser import CgdbParser
-from .surfException import FileNotExistException, InvalidArgsException
+from .surfElf import CelfSym
+from .surfException import InvalidArgsException
 
 
 class CuprobeParser(CgdbParser):
     def __init__(self, obj, gdb=None):
         self._libD = {}
         obj = self._setupObj(obj)
+        self._sym = CelfSym(obj)
         self._obj = obj
         super(CuprobeParser, self).__init__(obj, gdb)
         self._reBraces = re.compile(r"(?<=\{).+?(?=\})")
         self._beg = self._setupBeg()
 
     def _setupBeg(self):
-        cmd = "objdump -x %s" % self._obj
-        lines = self._cmd.cmd(cmd)
-        for line in lines.split('\n'):
-            s = line.strip()
-            if s.startswith("LOAD off"):
-                # LOAD off    0x0000000000000000 vaddr 0x0000000000000000 paddr 0x0000000000000000
-                s = re.sub(" +", " ", s)
-                vs = s.split(" ")
-                v = vs[4]
-                return int(v, 16)
-        raise ValueError("file has not LOAD off segments.")
+        return self._sym.symOffset()
 
     def _setupObj(self, obj):
         if obj.startswith('/'):  # abs path
@@ -85,14 +77,8 @@ class CuprobeParser(CgdbParser):
         return self._obj
 
     def funAddr(self, func):
-        self._write("p %s" % func)
-        # $3 = {<text variable, no debug info>} 0x48a870 <readline>
-        try:
-            res = self._read().split('\n')[-2]
-        except IndexError:
-            raise InvalidArgsException("can not find function %s in file %s" % (func, self._obj))
-        addr = res.split(" ")[-2]
-        v = int(addr, 16) - self._beg
+        addr = self._sym.symAddr(func)
+        v = addr - self._beg
         return "0x%x" % v
 
     def getFunc(self, func, ret=None, arg=None):

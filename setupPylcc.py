@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.2.19'
+VERSION = '0.2.20'
 
 from setuptools import setup
 
@@ -42,7 +42,7 @@ setup(name='pylcc',
       packages=["pylcc"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=['surftrace>=0.7.7', 'psutil'],
+      install_requires=['surftrace>=0.7.8', 'psutil'],
       entry_points={
           'console_scripts': [
           ]

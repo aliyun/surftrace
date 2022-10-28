@@ -15,6 +15,7 @@ __author__ = 'liaozhaoyan'
 
 import ctypes as ct
 import struct
+from surftrace.surfElf import CstructKsym
 from sys import version_info
 
 try:
@@ -124,8 +125,6 @@ class CtypeTable(CtypeData):
 class CeventBase(object):
     def __init__(self, so, name):
         self._so = so
-        self._so.lbc_bpf_get_maps_id.restype = ct.c_int
-        self._so.lbc_bpf_get_maps_id.argtypes = [ct.c_char_p]
         self._id = self._so.lbc_bpf_get_maps_id(ct.c_char_p(name.encode('utf-8')))
         if self._id < 0:
             raise InvalidArgsException("map %s, not such event" % name)
@@ -140,17 +139,6 @@ class CtableBase(CeventBase):
         self._vd = dTypes['vtype']
         self.keys = CtypeTable(self._kd)
         self.values = CtypeTable(self._vd)
-        self.__setup_localCalls()
-
-    def __setup_localCalls(self):
-        self._so.lbc_map_lookup_elem.restype = ct.c_int
-        self._so.lbc_map_lookup_elem.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
-        self._so.lbc_map_lookup_and_delete_elem.restype = ct.c_int
-        self._so.lbc_map_lookup_and_delete_elem.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
-        self._so.lbc_map_delete_elem.restype = ct.c_int
-        self._so.lbc_map_delete_elem.argtypes = [ct.c_int, ct.c_void_p]
-        self._so.lbc_map_get_next_key.restype = ct.c_int
-        self._so.lbc_map_get_next_key.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
 
     def _getSize(self, dCell):
         if dCell['array']:
@@ -288,29 +276,12 @@ class CmapsLruPerHash(CtableBase):
         super(CmapsLruPerHash, self).__init__(so, name, dTypes)
 
 
-class structKsym(ct.Structure):
-    _fields_ = [("addr", ct.c_ulong), ("name", ct.c_char_p)]
-
-
 class CmapsStack(CtableBase):
     def __init__(self, so, name, dTypes):
         super(CmapsStack, self).__init__(so, name, dTypes)
-        self._so.ksym_search.restype = ct.POINTER(structKsym)
-        self._so.ksym_search.argtypes = [ct.c_ulong]
 
-    def getStacks(self, stack_id, sLen=-1):
-        arr = []
-        stks = self.getKeyValue(stack_id)
-        if stks:
-            if sLen == -1:
-                sLen = len(stks)
-            for i in range(sLen):
-                if stks[i]:
-                    p = self._so.ksym_search(stks[i])
-                    arr.append(p.contents.name.decode())
-                else:
-                    break
-        return arr
+    def getArr(self, stack_id):
+        return self.getKeyValue(stack_id)
 
 
 class CmapsEvent(CeventBase):
@@ -319,11 +290,6 @@ class CmapsEvent(CeventBase):
         self.__d = dTypes['vtype']
         self.cb = None
         self.lostcb = None
-        self.__setup_localCalls()
-
-    def __setup_localCalls(self):
-        self._so.lbc_event_loop.restype = ct.c_int
-        self._so.lbc_event_loop.argtypes = [ct.c_int, ct.c_int]
 
     def open_perf_buffer(self, cb, lost=None):
         self.cb = cb
@@ -352,8 +318,6 @@ class CmapsEvent(CeventBase):
         lostCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_ulonglong)
         _cb = eventCallback(_callback)
         _lost = lostCallback(_lostcb)
-        self._so.lbc_set_event_cb.restype = ct.c_int
-        self._so.lbc_set_event_cb.argtypes = [ct.c_int, eventCallback, lostCallback]
         self._so.lbc_set_event_cb(self._id, _cb, _lost)
         self._so.lbc_event_loop(self._id, timeout)
 

@@ -13,8 +13,9 @@
 """
 __author__ = 'liaozhaoyan'
 
-from signal import pause
 from pylcc.lbcBase import ClbcBase, CeventThread
+from surftrace.surfElf import CelfKsym
+from pylcc.lbcStack import getKStacks
 
 bpfPog = r"""
 #include "lbc.h"
@@ -52,19 +53,20 @@ char _license[] SEC("license") = "GPL";
 class CcallStack(ClbcBase):
     def __init__(self):
         super(CcallStack, self).__init__("callStack", bpf_str=bpfPog)
+        self._ksym = CelfKsym()
 
     def _cb(self, cpu, e):
         print("cpu: %d current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             cpu, e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
-        stacks = self.maps['call_stack'].getStacks(e.stack_id)
+        stacks = getKStacks(self.maps['call_stack'], e.stack_id, self._ksym)
         print("call trace:")
         for s in stacks:
             print(s)
 
     def loop(self):
         CeventThread(self, 'e_out', self._cb)
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

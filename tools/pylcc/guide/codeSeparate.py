@@ -13,7 +13,6 @@
 """
 __author__ = 'liaozhaoyan'
 
-from signal import pause
 from pylcc.lbcBase import ClbcBase, CeventThread
 
 
@@ -28,7 +27,7 @@ class codeSeparate(ClbcBase):
 
     def loop(self):
         CeventThread(self, 'e_out', self._cb)
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

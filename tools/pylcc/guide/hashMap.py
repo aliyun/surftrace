@@ -62,11 +62,13 @@ class ChashMap(ClbcBase):
             cpu, e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
 
-    def loop(self):
-        CeventThread(self, 'e_out', self._cb)
-        pause()
+    def _exit(self):
         dMap = self.maps['pid_cnt']
         print(dMap.get())
+
+    def loop(self):
+        CeventThread(self, 'e_out', self._cb)
+        self.waitInterrupt(self._exit)
 
 
 if __name__ == "__main__":

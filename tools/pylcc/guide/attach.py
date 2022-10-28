@@ -12,7 +12,6 @@
 """
 __author__ = 'liaozhaoyan'
 
-from signal import pause
 from pylcc.lbcBase import ClbcBase
 
 bpfPog = r"""
@@ -35,7 +34,7 @@ class Cattach(ClbcBase):
     def __init__(self):
         super(Cattach, self).__init__("attach", bpf_str=bpfPog, attach=0)
         self.attachKprobe("j_wake_up_new_task2", "wake_up_new_task")
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

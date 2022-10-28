@@ -20,6 +20,7 @@ import _ctypes as _ct
 import psutil
 import json
 import hashlib
+import signal
 from threading import Thread
 from multiprocessing import cpu_count
 from pylcc.lbcMaps import mapsDict
@@ -276,8 +277,37 @@ class ClbcBase(ClbcLoad):
         bpf_so = self._setupSoName(bpf)
         self._loadSo(bpf_so)
         self._initSo(attach)
+        self._setupAttatchs()
+        self._setupOtherSyms()
+
         self.maps = {}
         self._loadMaps()
+
+        self._cbInterrupt = None
+
+    def so(self):
+        return self._so
+
+    def _setupOtherSyms(self):
+        self._so.lbc_bpf_get_maps_id.restype = ct.c_int
+        self._so.lbc_bpf_get_maps_id.argtypes = [ct.c_char_p]
+        self._so.lbc_map_lookup_elem.restype = ct.c_int
+        self._so.lbc_map_lookup_elem.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
+        self._so.lbc_map_lookup_and_delete_elem.restype = ct.c_int
+        self._so.lbc_map_lookup_and_delete_elem.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
+        self._so.lbc_map_delete_elem.restype = ct.c_int
+        self._so.lbc_map_delete_elem.argtypes = [ct.c_int, ct.c_void_p]
+        self._so.lbc_map_get_next_key.restype = ct.c_int
+        self._so.lbc_map_get_next_key.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
+
+        self._so.lbc_event_loop.restype = ct.c_int
+        self._so.lbc_event_loop.argtypes = [ct.c_int, ct.c_int]
+
+        eventCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_void_p, ct.c_ulong)
+        lostCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_ulonglong)
+
+        self._so.lbc_set_event_cb.restype = ct.c_int
+        self._so.lbc_set_event_cb.argtypes = [ct.c_int, eventCallback, lostCallback]
 
     def _setupAttatchs(self):
         #   int lbc_attach_perf_event(const char* func, const char* attrs, int pid, int cpu, int group_fd)
@@ -429,7 +459,8 @@ class ClbcBase(ClbcLoad):
         binaryPath, func = fxpr.split(":", 1)
         parser = CuprobeParser(binaryPath)
         fullPath = parser.fullObj()
-        offset = parser.funAddr(func)
+        offset = int(parser.funAddr(func), 16)
+        print(fullPath, offset)
         self.attachUprobes(function, pid, fullPath, offset)
 
     def traceUretprobes(self, function, pid, fxpr):
@@ -463,6 +494,15 @@ class ClbcBase(ClbcLoad):
         res = self._so.lbc_attach_xdp(function, ifindex)
         if res != 0:
             raise InvalidArgsException("attach %s to xdp %d failed." % (function, ifindex))
+
+    def _signalInterrupt(self, signum, frame):
+        self._cbInterrupt()
+
+    def waitInterrupt(self, cb=None):
+        if cb:
+            self._cbInterrupt = cb
+            signal.signal(signal.SIGINT, self._signalInterrupt)
+        signal.pause()
 
 
 class CeventThread(Thread):

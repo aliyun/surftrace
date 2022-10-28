@@ -163,6 +163,14 @@ class ClbcClient(CbaseParser):
         }
         return self._post(dSend, tmo=30)
 
+    def getElfSo(self):
+        dSend = {
+            "cmd": "elf_so",
+            "arch": self._arch,
+            'ver': self._ver,
+        }
+        return self._post(dSend, tmo=30)
+
 
 if __name__ == "__main__":
     pass

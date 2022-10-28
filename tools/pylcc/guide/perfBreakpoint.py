@@ -13,7 +13,6 @@
 __author__ = 'liaozhaoyan'
 
 import sys
-from signal import pause
 import time
 from pylcc.lbcBase import ClbcBase
 from pylcc.perfEvent import *
@@ -51,7 +50,7 @@ class CperfBreakPoint(ClbcBase):
             "bp_len": 8,
         }
         self.attachPerfEvent("bpf_prog", pfConfig, pid=self._pid, flags=PerfFlag.FD_CLOEXEC)
-        pause()
+        self.waitInterrupt()
 
     def loop3(self):
         print(self._pid, self._addr)
@@ -66,7 +65,7 @@ class CperfBreakPoint(ClbcBase):
             "bp_len": 8,
         }
         self.attachPerfEvent("bpf_prog", pfConfig, pid=self._pid, flags=PerfFlag.FD_CLOEXEC)
-        pause()
+        self.waitInterrupt()
 
     def loop1(self):
         print(self._pid, self._addr)

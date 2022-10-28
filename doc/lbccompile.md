@@ -1,19 +1,19 @@
-# 1、lbccompile镜像说明
+# 1、coolbpf server镜像说明
 ![](image)
-&emsp;lbccompile镜像可以提供以下服务:
+&emsp; coolbpf镜像可以提供以下服务:
 
 * surftrace数据在线解析服务
 * lcc bpf.c文件远程编译服务
 * btf文件在线获取服务
 
-&emsp;要运行lbccompile镜像，需要具备以下条件：
+&emsp;要运行coolbpf镜像，需要具备以下条件：
 
 1. 目标实例支持docker
 2. 目标实例预留100G左右的磁盘空间（存放btf/db文件）
 3. 如果要实时更新btf/db，需要支持访问pylcc.openanolis.cn
 4. surftrace >=0.6.3 pylcc >= 0.2.2
 
-# 2、搭建lbccompile服务
+# 2、搭建coolbpf 编译服务
 &emsp;我们以在192.168.22.4 实例上搭建lbccompile服务上搭建服务为例。
 ## 2.1、同步db/btf：
 &emsp;在实例上创建目录，如/root/1ext/hive，并在该目录下，同步db/btf数据源：
@@ -26,7 +26,7 @@ rsync -av pylcc.openanolis.cn::pylcc/header .
 &emsp;可以将rsync 放到crontab 定时任务中去，与远端定期保持同步。
 ## 2.2、启动容器
 ```bash
-docker run  --entrypoint="/bin/bash" --name surfd  -v /root/1ext/hive:/home/hive -p 7655:7655 -itd registry.cn-hangzhou.aliyuncs.com/alinux/lbccompile /home/lbc/run.sh 127.0.0.1
+docker run  --entrypoint="/bin/bash" --name surfd  -v /root/1ext/hive:/home/hive -p 7655:7655 -itd registry.cn-hangzhou.aliyuncs.com/alinux/coolbpf /home/lbc/run.sh 127.0.0.1
 ```
 
 ## 2.3、验证

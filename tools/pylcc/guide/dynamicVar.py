@@ -14,7 +14,6 @@
 __author__ = 'liaozhaoyan'
 
 import sys
-from signal import pause
 from pylcc.lbcBase import ClbcBase, CeventThread
 
 bpfPog = r"""
@@ -62,7 +61,7 @@ class CdynamicVar(ClbcBase):
 
     def loop(self):
         CeventThread(self, 'e_out', self._cb)
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

@@ -35,8 +35,7 @@ char _license[] SEC("license") = "GPL";
 class Chello(ClbcBase):
     def __init__(self):
         super(Chello, self).__init__("hello", bpf_str=bpfPog)
-        while True:
-            time.sleep(1)
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

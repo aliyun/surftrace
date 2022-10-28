@@ -13,7 +13,6 @@
 __author__ = 'liaozhaoyan'
 
 import argparse
-from signal import pause
 from pylcc.lbcBase import ClbcBase
 
 # arguments
@@ -208,8 +207,7 @@ class Cbindsnoop(ClbcBase):
         print(maps)
 
     def loopCount(self):
-        pause()
-        self._showMaps()
+        self.waitInterrupt(self._showMaps)
         pass
 
 

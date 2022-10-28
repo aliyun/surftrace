@@ -13,7 +13,6 @@
 __author__ = 'liaozhaoyan'
 
 import sys
-from signal import pause
 from pylcc.lbcBase import ClbcBase
 
 bpfPog = r"""
@@ -36,7 +35,7 @@ class CjavaProbe(ClbcBase):
         self.attachJavaSym("bpf_prog", pid, sym)
 
     def loop(self):
-        pause()
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":
