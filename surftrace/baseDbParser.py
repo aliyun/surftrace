@@ -166,5 +166,6 @@ class CbaseDbParser(CbaseParser):
         dSend = {"log": "ok.", 'res': self._getType(t)}
         return dSend
 
+
 if __name__ == "__main__":
     pass

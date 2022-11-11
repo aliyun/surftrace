@@ -12,9 +12,10 @@
 """
 __author__ = 'liaozhaoyan'
 
+import os
 import sys
 sys.path.append("../")
-from surftrace.surfCommon import transProbeLine
+from surftrace.surfCommon import transProbeLine, taskList
 
 
 def test_transProbeLine_probe():
@@ -50,6 +51,12 @@ def test_transProbeLine_syscallret():
     res = transProbeLine(syscallString)
     ret = res['return']
     assert ret == 0
+
+
+def test_taskList():
+    taskList(os.getpid())
+    assert taskList(9999) == []
+
 
 if __name__ == "__main__":
     pass

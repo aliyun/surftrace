@@ -14,7 +14,6 @@ __author__ = 'liaozhaoyan'
 
 import os
 import ctypes as ct
-import _ctypes as _ct
 from .lbcClient import ClbcClient, segDecode
 
 
@@ -48,7 +47,7 @@ class CelfBase(object):
 
     def __del__(self):
         if hasattr(self, "_so"):
-            _ct.dlclose(self._so._handle)
+            del self._so
 
     def _dlsym(self):
         pass

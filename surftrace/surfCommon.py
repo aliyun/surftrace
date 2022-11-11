@@ -12,11 +12,11 @@
 """
 __author__ = 'liaozhaoyan'
 
+import os
 import shlex
 import re
 from collections import deque
 from .execCmd import CexecCmd
-from datetime import datetime
 
 HIST2_MAX = 65
 HIST10_MAX = 20
@@ -215,6 +215,14 @@ def transProbeLine(line):
     else:
         raise ValueError("surftrace cannot fit %s now." % line)
     return res
+
+
+def taskList(pid):
+    path = "/proc/%d/task/" % pid
+    try:
+        return os.listdir(path)
+    except OSError:
+        return []
 
 
 if __name__ == "__main__":

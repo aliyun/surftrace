@@ -17,11 +17,14 @@ import sys
 sys.path.append("..")
 from surftrace import surftrace, setupParser
 
+
 def callbackOrig(line):
     print("orig:" + line)
 
+
 def callback(line):
     print("cb:" + line)
+
 
 expr = "p _do_fork comm=%0->comm node=%0->pids[1].node.next"
 if __name__ == "__main__":

@@ -16,8 +16,6 @@ __author__ = 'liaozhaoyan'
 import sys
 import os
 import ctypes as ct
-import _ctypes as _ct
-import psutil
 import json
 import hashlib
 import signal
@@ -27,6 +25,7 @@ from pylcc.lbcMaps import mapsDict
 from surftrace.execCmd import CexecCmd
 from surftrace.surfException import InvalidArgsException, RootRequiredException, FileNotExistException, DbException
 from surftrace.lbcClient import ClbcClient, segDecode
+from surftrace.surfCommon import taskList
 from surftrace.uprobeParser import CuprobeParser
 from pylcc.lbcInclude import ClbcInclude
 from pylcc.perfEvent import *
@@ -93,8 +92,7 @@ class ClbcLoad(object):
     def _closeSo(self):
         if self._need_deinit:
             self._deinitSo()
-        _ct.dlclose(self._so._handle)
-        self._so = None
+        del self._so
 
     def _checkBtf(self, ver, arch):
         if os.path.exists('/sys/kernel/btf/vmlinux'):
@@ -379,7 +377,7 @@ class ClbcBase(ClbcLoad):
             self.attachPerfEvent(function, attrD, pid=pid, cpu=i, group_fd=group_fd, flags=flags)
 
     def attachPerfEvents(self, function, attrD, pid, group_fd=-1, flags=0):
-        p = psutil.Process(pid)
+        p = taskList(pid)
         for pthread in p.threads():
             self.attachPerfEvent(function, attrD, pid=pthread.id, cpu=-1, group_fd=group_fd, flags=flags)
 
@@ -436,7 +434,7 @@ class ClbcBase(ClbcLoad):
 
     def attachUprobes(self, function, pid, binaryPath, offset=0):
         if pid > 0:
-            p = psutil.Process(pid)
+            p = taskList(pid)
             for pthread in p.threads():
                 self.attachUprobe(function, pthread.id, binaryPath, offset)
         else:
@@ -449,7 +447,7 @@ class ClbcBase(ClbcLoad):
 
     def attachUretprobes(self, function, pid, binaryPath, offset=0):
         if pid > 0:
-            p = psutil.Process(pid)
+            p = taskList(pid)
             for pthread in p.threads():
                 self.attachUretprobe(function, pthread.id, binaryPath, offset)
         else:
