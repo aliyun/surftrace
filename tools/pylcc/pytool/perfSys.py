@@ -18,8 +18,10 @@ import psutil
 from datetime import datetime
 from multiprocessing import cpu_count
 from treelib import Tree
+from surftrace.surfElf import CelfKsym
 from pylcc.lbcBase import ClbcBase
 from pylcc.perfEvent import *
+from pylcc.lbcStack import getKStacks
 from quickSvg import Flame
 
 bpfPog = r"""
@@ -76,6 +78,7 @@ class CperfSys(ClbcBase):
         self._freq = freq
         self._wait = wait
         self._cpus = cpus
+        self._ksym = CelfKsym()
 
     def loop(self):
         pfConfig = {
@@ -112,7 +115,7 @@ class CperfSys(ClbcBase):
         root = tree.create_node(tag="total", parent=tree.root, data={"func": "total", "count": 0})
         for k, v in res.items():
             last = root
-            syms = self.maps['call_stack'].getStacks(k)
+            syms = getKStacks(self.maps['call_stack'], k, self._ksym)
             for sym in syms[::-1]:
                 sym = sym.encode()
                 node = self._filterChild(tree, last.identifier, sym)

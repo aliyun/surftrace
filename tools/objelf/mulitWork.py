@@ -26,10 +26,12 @@ dstPath = "/root/1ext/nhive/"
 
 
 class Cwork(Process):
-    def __init__(self, path):
+    def __init__(self, path, wPath, dPath):
         super(Cwork, self).__init__()
         self.daemon = True
         self._path = path
+        self._wPath = wPath
+        self._dPath = dPath
         self.start()
 
     def system(self, cmds):
@@ -74,7 +76,7 @@ class Cwork(Process):
         else:
             raise ValueError("bad version.")
 
-        DBPath = dstPath + arch + "/db/"
+        DBPath = self._dPath + arch + "/db/"
         return DBPath + "%s/info-%s.db" % (release, ver)
 
     def _unpack(self, name):
@@ -87,7 +89,7 @@ class Cwork(Process):
 
     def run(self):
         print(os.getpid(), self._path)
-        wPath = os.path.join(workPath, "%d" % os.getpid())
+        wPath = os.path.join(self._wPath, "%d" % os.getpid())
         self.cmd("mkdir %s" % wPath)
         os.chdir(wPath)
         self.cmd("cp %s ./" % self._path)
@@ -97,12 +99,12 @@ class Cwork(Process):
         self._unpack(name)
         t = CtestDebug("./", db)
         t.work()
-        os.chdir(workPath)
+        os.chdir(self._wPath)
         self.cmd("rm -rf %s" % wPath)
 
 
-def work(path):
-    Cwork(path)
+def work(path, wPath, dPath):
+    Cwork(path, wPath, dPath)
 
 
 class CgroupWork(object):
@@ -128,13 +130,13 @@ class CgroupWork(object):
                     return
             time.sleep(1)
 
-    def work(self):
+    def work(self, wPath, dPath):
         for path in self.getPath():
-            self._ps.append(Cwork(path))
+            self._ps.append(Cwork(path, wPath, dPath))
             self.check()
 
 
 if __name__ == "__main__":
     g = CgroupWork(srcPath, maxL=6)
-    g.work()
+    g.work(workPath, dstPath)
     pass

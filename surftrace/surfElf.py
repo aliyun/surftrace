@@ -17,6 +17,9 @@ import ctypes as ct
 from .lbcClient import ClbcClient, segDecode
 
 
+SYMNAME = "syms.so"
+
+
 class CstructKsym(ct.Structure):
     _fields_ = [("addr", ct.c_ulong), ("name", ct.c_char_p)]
 
@@ -28,10 +31,13 @@ def getCwd(pathStr):
 class CelfBase(object):
     def __init__(self):
         super(CelfBase, self).__init__()
-        soPath = os.path.join(getCwd(__file__), "syms.so")
-        if not os.path.exists(soPath):
-            self._downSo(soPath)
-        self._so = ct.CDLL(soPath)
+        try:
+            self._so = ct.CDLL(SYMNAME)
+        except OSError:
+            soPath = os.path.join(getCwd(__file__), SYMNAME)
+            if not os.path.exists(soPath):
+                self._downSo(soPath)
+            self._so = ct.CDLL(soPath)
         self._dlsym()
 
     def _downSo(self, soPath):

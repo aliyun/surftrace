@@ -29,8 +29,11 @@ class CtestDebug(object):
             for fName in fileL:
                 if fName.startswith("vmlinux"):
                     vmPath = os.path.join(path, fName)
-                    obj = CobjElf(vmPath)
-                    obj.toDb("vmlinux", self._db)
+                    try:
+                        obj = CobjElf(vmPath)
+                        obj.toDb("vmlinux", self._db)
+                    except Exception as e:
+                        print("vmlinux parse failed, report %s, pid %d" % (repr(e), os.getpid()))
                     break
 
     def _parseKo(self, path, ko):
@@ -39,8 +42,11 @@ class CtestDebug(object):
         else:
             mod = ko.rsplit(".", 2)[0]
         vmPath = os.path.join(path, ko)
-        obj = CobjElf(vmPath)
-        obj.toDb(mod, self._db)
+        try:
+            obj = CobjElf(vmPath)
+            obj.toDb(mod, self._db)
+        except Exception as e:
+            print("ko %s parse failed, report %s, pid %d" % (ko, repr(e), os.getpid()))
 
     def walkKo(self):
         g = os.walk(self._dPath)

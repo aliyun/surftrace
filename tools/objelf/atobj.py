@@ -188,9 +188,14 @@ class CatObj(object):
         return self._at_high_pc(values)
 
     def _at_byte_size(self, values):
-        if values.startswith("0x"):
-            return int(values, 16)
-        return int(values)
+        try:
+            if values.startswith("0x"):
+                res = int(values, 16)
+            else:
+                res = int(values)
+        except ValueError:
+            res = values
+        return res
 
     def _at_encoding(self, values):
         _, value = values.split("(", 1)

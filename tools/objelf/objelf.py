@@ -23,7 +23,6 @@ from subprocess import PIPE, Popen
 from threading import Thread, Lock
 from atobj import CatObj
 from dict2db import Cobj2db
-from pympler import tracker, muppy
 
 
 class Cobj2json(object):
@@ -148,8 +147,8 @@ class Cobj2json(object):
         flag, tail = self._compileUnitHead(tail)
         while flag:
             lines, tail = self._compileUnitEnd(tail)
-            with open("cell.txt", "w") as f:
-                f.write("\n".join(lines))
+            # with open("cell.txt", "w") as f:
+            #     f.write("\n".join(lines))
             yield self._decode(lines)
             flag, tail = self._compileUnitHead(tail)
 
@@ -201,8 +200,12 @@ class CobjElf(object):
         self._elf = elf
         self._p = None
 
+    def __del__(self):
+        if hasattr(self, "_p"):
+            self.closePipe()
+
     def _exec(self):
-        cmd = "objdump --dwarf %s" % self._elf
+        cmd = "readelf -w %s" % self._elf
         with self._l:
             self._r, self._w = os.pipe()
             self._p = Popen(shlex.split(cmd), stdout=self._w)
@@ -211,7 +214,7 @@ class CobjElf(object):
     def poll(self):
         res = 0
         with self._l:
-            if self._p:
+            if hasattr(self, "_p"):
                 res = self._p.poll()
         return res
 
@@ -222,8 +225,11 @@ class CobjElf(object):
                 os.close(self._w)
                 self._r = -1
                 self._w = -1
-                self._p.terminate()
-                self._p = None
+                try:
+                    self._p.terminate()
+                except OSError:
+                    pass
+                del self._p
 
     def _read(self, size=16384):
         if sys.version_info.major == 2:
@@ -251,8 +257,8 @@ class CobjElf(object):
         ana = o.accept(self._read)
         for res in ana:
             obj = Cobj2db(name, db)
-            with open("vm.json", "w") as f:
-                json.dump(res, f)
+            # with open("vm.json", "w") as f:
+            #     json.dump(res, f)
             obj.walks(res)
             del obj, res
         self.closePipe()
