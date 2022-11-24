@@ -13,13 +13,13 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.7.9'
+VERSION = '0.7.10'
 
 import sys
 from setuptools import setup, find_packages
 
 if sys.version_info.major == 2:
-    reqLists = ["certifi==2017.4.17", "pip==20.3.4", "requests", "quickSvg>=0.1.6"]
+    reqLists = ["certifi==2017.4.17", "pip==20.3.4", "requests==2.23.0", "quickSvg>=0.1.6"]
 else:
     reqLists = ["requests", "quickSvg>=0.1.6"]
 
