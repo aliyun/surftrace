@@ -15,15 +15,18 @@ __author__ = 'liaozhaoyan'
 import os
 import sqlite3
 import json
+import traceback
 
 
 class Cobj2db(object):
-    def __init__(self, path, db):
+    def __init__(self, path, db, pointSize=8):
         super(Cobj2db, self).__init__()
         self._path = path
         self._db = self._setupDb(db)
         self._offD = {}
         self._cur = None
+
+        self._sizePoint = pointSize
         # for dwarf 5
         self._bit_offset = -1
         self._bit_size = -1
@@ -36,6 +39,20 @@ class Cobj2db(object):
             "DW_TAG_structure_type": self._cb_structure,
             "DW_TAG_union_type": self._cb_union,
             "DW_TAG_enumeration_type": self._cb_enumeration,
+        }
+        self._refs = {
+            "DW_TAG_structure_type": self._ref_sue,
+            "DW_TAG_union_type": self._ref_sue,
+            "DW_TAG_enumeration_type": self._ref_sue,
+            "DW_TAG_base_type": self._ref_base,
+            "DW_TAG_pointer_type": self._ref_pointer,
+            "DW_TAG_subroutine_type": self._ref_subroutine,
+            "DW_TAG_array_type": self._ref_array,
+            "DW_TAG_formal_parameter": self._ref_formal,
+            "DW_TAG_member": self._ref_formal,
+            "DW_TAG_typedef": self._ref_jump,
+            "DW_TAG_const_type": self._ref_jump,
+            "DW_TAG_volatile_type": self._ref_jump,
         }
 
     def _setupDb(self, dbPath):
@@ -80,6 +97,8 @@ class Cobj2db(object):
                                               alias VARCHAR (64),
                                               bytes INTEGER
                                     );""",
+            """CREATE INDEX "iname" ON "structs" ( "name" ASC );""",
+            """CREATE INDEX "tname" ON "types" ( "name" ASC );""",
         ]
         for sql in sqls:
             cur.execute(sql)
@@ -112,6 +131,8 @@ class Cobj2db(object):
         for child in cell["child"]:
             if "DW_AT_upper_bound" in child:
                 res += "[%d]" % (child["DW_AT_upper_bound"] + 1)
+            elif "DW_AT_count" in child:
+                res += "[%d]" % (child["DW_AT_count"])
             else:
                 res += "[%d]" % 1
         return res
@@ -121,6 +142,8 @@ class Cobj2db(object):
         for child in cell["child"]:
             if "DW_AT_upper_bound" in child:
                 scale *= child["DW_AT_upper_bound"] + 1
+            elif "DW_AT_count" in child:
+                scale *= child["DW_AT_count"]
         return scale
 
     def _get_pfunc(self, cell):
@@ -143,45 +166,57 @@ class Cobj2db(object):
                     break
         else:
             args = ['void']
-
         return "%s (*)(%s)" % (res, ", ".join(args))
 
-    def _get_ref_type(self, cell):
+    def _ref_sue(self, cell):
         aType = cell["tag_name"]
         tHeads = {
             "DW_TAG_structure_type": "struct",
             "DW_TAG_union_type": "union",
             "DW_TAG_enumeration_type": "enum",
         }
-        if aType in ("DW_TAG_structure_type", "DW_TAG_union_type", "DW_TAG_enumeration_type"):
-            if "DW_AT_name" in cell:
-                return " ".join((tHeads[aType], cell["DW_AT_name"]))
-            else:
-                return tHeads[aType]
-        elif aType == "DW_TAG_base_type":
-            return cell["DW_AT_name"]
-        elif aType == "DW_TAG_pointer_type":
-            if 'DW_AT_type' in cell:
-                resId = cell['DW_AT_type']
-                resCell = self._offD[resId]
-                if resCell["tag_name"] == "DW_TAG_subroutine_type":
-                    return self._get_pfunc(resCell)
-                return self._get_ref_type(resCell) + "*"
-            return "void*"
-        elif aType == "DW_TAG_array_type":
+        if "DW_AT_name" in cell:
+            return " ".join((tHeads[aType], cell["DW_AT_name"]))
+        else:
+            return tHeads[aType]
+
+    def _ref_base(self, cell):
+        return cell["DW_AT_name"]
+
+    def _ref_pointer(self, cell):
+        if 'DW_AT_type' in cell:
             resId = cell['DW_AT_type']
             resCell = self._offD[resId]
-            return self._get_ref_type(resCell) + self._get_ref_array(cell)
-        elif aType in ("DW_TAG_formal_parameter", "DW_TAG_member"):
+            if resCell["tag_name"] == "DW_TAG_subroutine_type":
+                return self._get_pfunc(resCell)
+            return self._get_ref_type(resCell) + "*"
+        else:
+            return "void*"
+
+    def _ref_subroutine(self, cell):
+        return self._get_pfunc(cell)
+
+    def _ref_array(self, cell):
+        resId = cell['DW_AT_type']
+        resCell = self._offD[resId]
+        return self._get_ref_type(resCell) + self._get_ref_array(cell)
+
+    def _ref_formal(self, cell):
+        resId = cell['DW_AT_type']
+        resCell = self._offD[resId]
+        return self._get_ref_type(resCell)
+
+    def _ref_jump(self, cell):
+        if "DW_AT_type" in cell:
             resId = cell['DW_AT_type']
             resCell = self._offD[resId]
             return self._get_ref_type(resCell)
-        elif aType in ("DW_TAG_typedef", "DW_TAG_const_type", "DW_TAG_volatile_type"):
-            if "DW_AT_type" in cell:
-                resId = cell['DW_AT_type']
-                resCell = self._offD[resId]
-                return self._get_ref_type(resCell)
-            return "void"
+        return "void"
+
+    def _get_ref_type(self, cell):
+        aType = cell["tag_name"]
+        if aType in self._refs.keys():
+            return self._refs[aType](cell)
         return aType
 
     def _get_ref_cell(self, cell):
@@ -197,6 +232,10 @@ class Cobj2db(object):
         while "DW_AT_byte_size" not in cell:
             if cell["tag_name"] == "DW_TAG_array_type":
                 scale = self._get_array_scale(cell)
+            if cell["tag_name"] == "DW_TAG_pointer_type":
+                if "DW_AT_byte_size" not in cell:
+                    cell["DW_AT_byte_size"] = self._sizePoint
+                    break
             if "DW_AT_type" in cell:
                 resId = cell['DW_AT_type']
                 cell = self._offD[resId]
@@ -272,6 +311,9 @@ class Cobj2db(object):
                 else:
                     return self._save_type_void(name, "void")
             alias = self._get_ref_type(resCell)
+            if alias in ("struct", "union", "enum"):
+                self._save_struct(resCell, name)  # no struct name
+                alias = name
             self._save_type1(resCell, name, alias)
         else:
             return self._save_type_void(name, "void")
@@ -301,36 +343,58 @@ class Cobj2db(object):
         return res
 
     def _save_member(self, cell, fid, offset):
-        name = cell["DW_AT_name"]
+        isAnony = False
         types = self._get_ref_type(cell)
+        if types in ("struct", "union"):  # anon members. for clang
+            types = self._anony_member(types, cell)
+            isAnony = True
+        if "DW_AT_name" in cell:
+            name = cell["DW_AT_name"]
+        elif isAnony:
+            name = "$"
+        else:
+            print(cell)
+            raise ValueError("bad struct")
         size = self._get_ref_size(cell)
         bits = self._member_bits(cell)
         sql = "INSERT INTO members (fid, types, name, offset, bytes, bits) "
         sql += 'VALUES (%d, "%s", "%s", %d, %d, "%s")' % (fid, types, name, offset, size, bits)
         self._cur.execute(sql)
 
+    def _anony_member(self, types, cell):
+        cell = self._get_ref_cell(cell)
+        while cell["tag_name"] == "DW_TAG_typedef":
+            cell = self._get_ref_cell(cell)
+        name = f"{types} ${cell['offset']}"
+        if not self._struct_is_in(name):
+            self._save_struct(cell, name)
+        return name
+
     def _anony_struct(self, cell, fid, beg):
         size = cell["DW_AT_byte_size"]
         if size > 0:
             isStruct = cell['tag_name'] == "DW_TAG_structure_type"
-
             self._bit_offset = -1
             self._bit_size = -1
-            for cell in cell["child"]:
+            offset = 0
+            for child in cell["child"]:
                 if isStruct:
-                    if "DW_AT_data_member_location" in cell:
-                        offset = beg + cell["DW_AT_data_member_location"]
-                    elif "DW_AT_data_bit_offset" in cell:
-                        offset = beg + self._cal_bit_offset(cell)
+                    if "DW_AT_data_member_location" in child:
+                        offset = beg + child["DW_AT_data_member_location"]
+                    elif "DW_AT_data_bit_offset" in child:
+                        offset = beg + self._cal_bit_offset(child)
+                    elif child["tag_name"] in self._cbs.keys():
+                        self._saveCell(child)
                     else:
-                        raise ValueError("bad cell", cell)
+                        raise ValueError("bad cell", child)
                 else:
                     offset = beg
-                if "DW_AT_name" in cell:
+                if "DW_AT_name" in child:
+                    self._save_member(child, fid, offset)
+                elif child["tag_name"] not in self._cbs.keys():
                     self._save_member(cell, fid, offset)
-                else:
-                    resCell = self._get_ref_cell(cell)
-                    self._anony_struct(resCell, fid, offset)
+                    # resCell = self._get_ref_cell(child)
+                    # self._anony_struct(resCell, fid, offset)
 
     def _cal_bit_offset(self, cell):
         size = self._get_ref_size(cell)
@@ -356,22 +420,27 @@ class Cobj2db(object):
             isStruct = cell['tag_name'] == "DW_TAG_structure_type"
             self._bit_offset = -1
             self._bit_size = -1
-            for cell in cell["child"]:
+            offset = 0
+            for child in cell["child"]:
                 if isStruct:
-                    if "DW_AT_data_member_location" in cell:
-                        offset = cell["DW_AT_data_member_location"]
-                    elif "DW_AT_data_bit_offset" in cell:
-                        offset = self._cal_bit_offset(cell)
+                    if "DW_AT_data_member_location" in child:
+                        offset = child["DW_AT_data_member_location"]
+                    elif "DW_AT_data_bit_offset" in child:
+                        offset = self._cal_bit_offset(child)
+                    elif child["tag_name"] in self._cbs.keys():
+                        self._saveCell(child)
                     else:
-                        raise ValueError("bad cell", cell)
+                        print(child)
+                        raise ValueError("bad cell")
                 else:
                     offset = 0
 
-                if "DW_AT_name" in cell:
-                    self._save_member(cell, fid, offset)
-                else:  # for anony struct or union
-                    resCell = self._get_ref_cell(cell)
-                    self._anony_struct(resCell, fid, offset)
+                if "DW_AT_name" in child:
+                    self._save_member(child, fid, offset)
+                elif child["tag_name"] not in self._cbs.keys():  # for anony struct or union
+                    self._save_member(child, fid, offset)
+                    # resCell = self._get_ref_cell(child)
+                    # self._anony_struct(resCell, fid, offset)
         else:
             nums = 0
             sql = 'INSERT INTO structs (name, members, bytes) '
@@ -407,14 +476,17 @@ class Cobj2db(object):
             if "child" in cell:
                 self._walk_offs(cell["child"])
 
+    def _saveCell(self, cell):
+        tag = cell["tag_name"]
+        if tag in self._cbs.keys():
+            try:
+                self._cbs[tag](cell)
+            except sqlite3.OperationalError as e:
+                print(e)
+
     def _splitCells(self, cells):
         for cell in cells:
-            tag = cell["tag_name"]
-            if tag in self._cbs.keys():
-                try:
-                    self._cbs[tag](cell)
-                except sqlite3.OperationalError:
-                    continue
+            self._saveCell(cell)
 
     def _toDb(self, desc):
         topD = desc

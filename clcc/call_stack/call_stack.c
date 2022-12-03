@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "clcc.h"
+#include "ksyms.h"
 
 #define TASK_COMM_LEN 16
 struct data_t {
@@ -23,7 +24,7 @@ void event_cb(void *ctx, int cpu, void *data, unsigned int size){
 
     if (table_id >= 0 && !clcc_get_call_stack(table_id, e->stack_id, &stack, gclcc)) {
         printf("call stack:\n");
-        clcc_print_stack(&stack, gclcc);
+        ksym_shows(&stack);
     }
 }
 
@@ -40,17 +41,26 @@ void event_run(struct clcc_struct* pclcc) {
 }
 
 int main(int argc,char *argv[]) {
+    int res;
     struct clcc_struct* pclcc = clcc_init("./"SO_NAME);
 
     if (pclcc == NULL) {
         printf("open so file failed.\n");
         exit(-1);
     }
+
+    res = ksym_load();
+    if (res != 0) {
+        printf("setup kallsyms failed.\n");
+        exit(-1);
+    }
+
     pclcc->init(-1, 1);
     gclcc = pclcc;
     event_run(pclcc);
 
     pclcc->exit();
+    ksym_deinit();
     clcc_deinit(pclcc);
     return 0;
 }

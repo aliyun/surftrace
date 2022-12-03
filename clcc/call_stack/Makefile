@@ -9,7 +9,7 @@ CC=gcc
 CC_FLAG=-Wall -g
 
 PRG=call_stack
-OBJ=$(PRG).o
+OBJ=$(PRG).o ksyms.o
 BPF_FILE=$(PRG).bpf.c
 BFP_SO=$(PRG).so
 
@@ -19,7 +19,7 @@ $(PRG): $(BFP_SO) $(OBJ)
 $(BFP_SO): $(BPF_FILE)
 	$(LCC) -f $(BPF_FILE)
 
-%.o: %.c
+%.o: %.c ksyms.h
 	$(CC) $(CC_FLAG) $(INC) -c $< -o $@ -DSO_NAME=\"$(BFP_SO)\"
 
 .PRONY:clean

@@ -20,7 +20,7 @@ $(BFP_SO): $(BPF_FILE)
 	$(LCC) -f $(BPF_FILE)
 
 %.o: %.c
-	$(CC) $(CC_FLAG) $(INC) -c $< -o $@ -DSO_NAME=\"$(BFP_SO)\"
+	$(CC) -O $(CC_FLAG) $(INC) -c $< -o $@ -DSO_NAME=\"$(BFP_SO)\"
 
 .PRONY:clean
 clean:

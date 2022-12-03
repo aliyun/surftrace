@@ -54,7 +54,7 @@ struct iEmployee
         int dd;
         int mm;
         int yyyy;
-    };
+    } date;
 };
 
 int second(void);

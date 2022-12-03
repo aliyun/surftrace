@@ -126,7 +126,7 @@ class CbaseDbParser(CbaseParser):
         if '*' not in t:
             sql = "SELECT name, alias, bytes FROM types WHERE name = '%s'" % t
         else:
-            sql = "SELECT name, alias, bytes FROM types WHERE id = 1"
+            sql = "SELECT name, alias, bytes FROM types WHERE name = 'void *'"
         res = cur.execute(sql)
         r = res.fetchone()
         if r is None: return None

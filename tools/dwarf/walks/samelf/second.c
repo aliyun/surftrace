@@ -11,8 +11,8 @@ enum DAY {
 };
 
 void get_iemployee(struct iEmployee* e) {
-    e->dd = 10;
-    printf("e:%d", e->dd );
+    e->date.dd = 10;
+    printf("e:%d", e->date.dd );
 }
 
 void get_employee(struct Employee* e) {
