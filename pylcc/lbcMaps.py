@@ -13,10 +13,6 @@
 """
 __author__ = 'liaozhaoyan'
 
-import ctypes as ct
-import struct
-from surftrace.surfElf import CstructKsym
-from sys import version_info
 
 try:
     from collections.abc import MutableMapping
@@ -26,78 +22,13 @@ from surftrace import InvalidArgsException
 from surftrace.surfCommon import CsurfList
 
 
-class CtypeData(object):
-    def __init__(self, dForm, data):
-        super(CtypeData, self).__init__()
-        self.dForm = dForm
-        self._initData(data)
-
-    def _invData(self, v, dFormat):
-        # if dFormat.has_key('format'):  not support for python3
-        if 'format' in dFormat:
-            if dFormat['array']:
-                data = None
-                for c in v:
-                    data += struct.pack("%s" % dFormat['format'][0], c)
-            else:
-                data = struct.pack("%s" % dFormat['format'], v)
-        else:
-            data = None
-            for d in dFormat['cells']:
-                data += self._invData(v[d['member']], d)
-        return data
-
-    @staticmethod
-    def __strlen(stream, size):
-        for i in range(size):
-            if stream[i] == '\0':
-                return i
-        return i
-
-    def _loadData(self, data, start, dFormat):
-        if "format" in dFormat:
-            if dFormat['array'] > 0:
-                if dFormat['format'][0] == 'c':
-                    stream = data[start:start + dFormat['size'] * dFormat['array']]
-                    size = self.__strlen(stream, dFormat['array'])
-                    tp = struct.unpack("%ds" % size, stream[:size])[0]
-                    s = ''
-                    if version_info.major == 2:
-                        s = ''.join(tp)
-                    else:
-                        for t in tp:
-                            if t != 0:
-                                s += chr(t)
-                            else:
-                                break
-                    return s
-                else:
-                    return struct.unpack(dFormat['format'].encode('utf-8'),
-                                         data[start:start + dFormat['size'] * dFormat['array']])
-            else:
-                return struct.unpack(dFormat['format'].encode('utf-8'), data[start:start + dFormat['size']])[0]
-        else:
-            rDict = {}
-            for d in dFormat['cells']:
-                beg = start + d['offset']
-                rDict[d['member']] = self._loadData(data[beg:], start, d)
-            return rDict
-
-    def _initData(self, data):
-        if "format" in self.dForm:
-            d = {'value': self._loadData(data, 0, self.dForm)}
-        else:
-            d = self._loadData(data, 0, self.dForm)
-        self.localDict = d
-        self.__dict__.update(self.localDict)
-
-
 class CtypeTable(object):
     def __init__(self, fType, ffi):
         super(CtypeTable, self).__init__()
         self._type = fType
-        self._ffiType = self._setupFfi(self._type)
         self._ffi = ffi
+        self.ffiType = self._setupFfi(self._type)
+        self.ffiSize = ffi.sizeof(self._type)
 
         self._localData = []
 
@@ -118,24 +49,18 @@ class CtypeTable(object):
         return self._localData
 
     def input(self, k):
-        print(k)
-        data = struct.pack("i", k)
-        # size = self._ffi.sizeof("%s" % self._type)
-        # v = self._ffi.new("%s *" % self._type, k)
-        # pv = self._ffi.cast("char *", v)
-        # data = struct.pack("c%d" % size, self._ffi.string(pv, size))
-        return data
+        v = self._ffi.new(self._type, k)
+        p = self._ffi.cast("void *", v)
+        return p
 
     def load(self, data):
-        print(data)
-        print(ct.POINTER(data))
-        return self._ffi.cast(self._ffiType, ct.POINTER(data))
+        return self._ffi.cast(self.ffiType, data)
 
 
 class CeventBase(object):
     def __init__(self, so, name):
         self._so = so
-        self._id = self._so.lbc_bpf_get_maps_id(ct.c_char_p(name.encode('utf-8')))
+        self._id = self._so.lbc_bpf_get_maps_id(name.encode('utf-8'))
         if self._id < 0:
             raise InvalidArgsException("map %s, not such event" % name)
         self.name = name
@@ -155,30 +80,26 @@ class CtableBase(CeventBase):
         return self._ffi.sizeof(fType)
 
     def get(self):
-        ksize = self._getSize(self._kd)
-        vsize = self._getSize(self._vd)
-
         self.keys.clear()
         self.values.clear()
-        v = ct.create_string_buffer(vsize)
-        k1 = ct.create_string_buffer(ksize)
-        k2 = ct.create_string_buffer(ksize)
+
+        v = self._ffi.new(self.values.ffiType)
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             self._so.lbc_map_lookup_elem(self._id, k2, v)
             self.values.add(v)
-            ct.memmove(k1, k2, ksize)
+            self._ffi.memmove(k1, k2, self.keys.ffiSize)
         return dict(zip(self.keys.output(), self.values.output()))
 
     def getThenClear(self):
-        ksize = self._getSize(self._kd)
-        vsize = self._getSize(self._vd)
-
         self.keys.clear()
         self.values.clear()
-        v = ct.create_string_buffer(vsize)
-        k1 = ct.create_string_buffer(ksize)
-        k2 = ct.create_string_buffer(ksize)
+
+        v = self._ffi.new(self.values.ffiType)
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             r = self._so.lbc_map_lookup_and_delete_elem(self._id, k2, v)
@@ -186,38 +107,34 @@ class CtableBase(CeventBase):
                 raise InvalidArgsException(
                     "lbc_map_lookup_and_delete_elem return %d, os may not support this opertation." % r)
             self.values.add(v)
-            ct.memmove(k1, k2, ksize)
+            self._ffi.memmove(k1, k2, self.keys.ffiSize)
         r = dict(zip(self.keys.output(), self.values.output()))
         return r
 
     def getKeys(self):
         self.keys.clear()
         self.values.clear()
-        ksize = self._getSize(self._kd)
 
-        k1 = ct.create_string_buffer(ksize)
-        k2 = ct.create_string_buffer(ksize)
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
-            ct.memmove(k1, k2, ksize)
+            self._ffi.memmove(k1, k2, self.keys.ffiSize)
         return self.keys.output()
 
     def getKeyValue(self, k):
-        vsize = self._getSize(self._vd)
         key = self.keys.input(k)
-        v = ct.create_string_buffer(vsize)
-        print(key, vsize)
+        v = self._ffi.new(self.values.ffiType)
         if self._so.lbc_map_lookup_elem(self._id, key, v) == 0:
             return self.values.load(v)
         return None
 
     def clear(self):
-        ksize = self._kd['size']
-        k1 = ct.create_string_buffer(ksize)
-        k2 = ct.create_string_buffer(ksize)
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self._so.lbc_map_delete_elem(self._id, k2)
-            ct.memmove(k1, k2, ksize)
+            self._ffi.memmove(k1, k2, self.keys.ffiSize)
 
 
 class CmapsHash(CtableBase):
@@ -298,7 +215,7 @@ class CmapsEvent(CeventBase):
     def __init__(self, so, name, dTypes, ffi):
         super(CmapsEvent, self).__init__(so, name)
         self._d = dTypes["fvtype"]
-        self._ffiType = self._setupFfi(self._d)
+        self.ffiType = self._setupFfi(self._d)
         self.cb = None
         self.lostcb = None
         self._ffi = ffi
@@ -323,25 +240,23 @@ class CmapsEvent(CeventBase):
         if not hasattr(obj, "lostcb"):
             obj.lostcb = None
 
+        @self._ffi.callback("void(void *ctx, int cpu, void *data, unsigned int size)")
         def _callback(context, cpu, data, size):
             if obj.cb:
                 obj.cb(cpu, data, size)
 
+        @self._ffi.callback("void(void *ctx, int cpu, unsigned long long cnt)")
         def _lostcb(context, cpu, count):
             if obj.lostcb:
                 obj.lostcb(cpu, count)
             else:
                 print("cpu%d lost %d events" % (cpu, count))
 
-        eventCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_void_p, ct.c_ulong)
-        lostCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_ulonglong)
-        _cb = eventCallback(_callback)
-        _lost = lostCallback(_lostcb)
-        self._so.lbc_set_event_cb(self._id, _cb, _lost)
+        self._so.lbc_set_event_cb(self._id, _callback, _lostcb)
         self._so.lbc_event_loop(self._id, timeout)
 
     def event(self, data):
-        return self._ffi.cast(self._ffiType, data)
+        return self._ffi.cast(self.ffiType, data)
 
 
 mapsDict = {'event': CmapsEvent,

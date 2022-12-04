@@ -15,7 +15,6 @@ __author__ = 'liaozhaoyan'
 
 import sys
 import os
-import ctypes as ct
 import json
 import hashlib
 import signal
@@ -55,7 +54,10 @@ class ClbcLoad(object):
         else:
             self._wPath = os.getcwd()
         self._incPath = incPath
+
         super(ClbcLoad, self).__init__()
+
+        self._ffi = cffi.FFI()
         self._so = None
         self._need_deinit = False
         self._server = server
@@ -93,7 +95,7 @@ class ClbcLoad(object):
     def _closeSo(self):
         if self._need_deinit:
             self._deinitSo()
-        del self._so
+        self._ffi.dlclose(self._so)
 
     def _checkBtf(self, ver, arch):
         if os.path.exists('/sys/kernel/btf/vmlinux'):
@@ -178,7 +180,7 @@ class ClbcLoad(object):
     def _checkVer(self, bpf_so, ver, arch):
         """if should compile return ture, else return false"""
         try:
-            self._so = ct.CDLL(bpf_so)
+            self._so = self._ffi.dlopen(bpf_so)
         except (OSError, FileNotFoundError):
             return True
         soVer = self._loadDesc()['kern_version']
@@ -191,9 +193,10 @@ class ClbcLoad(object):
     def _checkHash(self, bpf_so, cHash):
         """if should compile return ture, else return false"""
         try:
-            self._so = ct.CDLL(bpf_so)
+            self._so = self._ffi.dlopen(bpf_so)
         except (OSError, FileNotFoundError):
             return True
+        self._ffi.cdef(self._cdef(), override=True)
         soHash = self._loadDesc()['hash']
         self._closeSo()
         return not cHash == soHash
@@ -242,7 +245,37 @@ class ClbcLoad(object):
             f.write(segDecode(dRecv['obj']))
 
     def _loadSo(self, bpf_so):
-        self._so = ct.CDLL(bpf_so)
+        self._so = self._ffi.dlopen(bpf_so)
+        self._ffi.cdef(self._cdef(), override=True)
+
+    @staticmethod
+    def _cdef():
+        return """
+        int  lbc_bpf_init(int log_level, int attach);
+        void lbc_bpf_exit(void);
+        int  lbc_bpf_get_maps_id(char* event);
+        int  lbc_set_event_cb(int id,
+                       void (*cb)(void *ctx, int cpu, void *data, unsigned int size),
+                       void (*lost)(void *ctx, int cpu, unsigned long long cnt));
+        int  lbc_event_loop(int id, int timeout);
+        int  lbc_map_lookup_elem(int id, const void *key, void *value);
+        int  lbc_map_lookup_elem_flags(int id, void *key, void *value, unsigned long int);
+        int  lbc_map_lookup_and_delete_elem(int id, void *key, void *value);
+        int  lbc_map_delete_elem(int id, void *key);
+        int  lbc_map_update_elem(int id, void *key, void *value);
+        int  lbc_map_get_next_key(int id, void *key, void *next_key);
+        int  lbc_attach_perf_event(char* func, int pfd);
+        int  lbc_attach_kprobe(char* func, char* sym);
+        int  lbc_attach_kretprobe(char* func, char* sym);
+        int  lbc_attach_uprobe(char* func, int pid, char *binary_path, unsigned long func_offset);
+        int  lbc_attach_uretprobe(char* func, int pid, char *binary_path, unsigned long func_offset);
+        int  lbc_attach_tracepoint(char* func, char *tp_category, char *tp_name);
+        int  lbc_attach_raw_tracepoint(char* func, char *tp_name);
+        int  lbc_attach_cgroup(char* func, int cgroup_fd);
+        int  lbc_attach_netns(char* func, int netns);
+        int  lbc_attach_xdp(char* func, int ifindex);
+        char* lbc_get_map_types(void);
+        """
 
     def _checkSo(self):
         if not self._so:
@@ -250,19 +283,25 @@ class ClbcLoad(object):
 
     def _loadDesc(self):
         self._checkSo()
-        self._so.lbc_get_map_types.restype = ct.c_char_p
-        self._so.lbc_get_map_types.argtypes = []
-        desc = self._so.lbc_get_map_types()
+        desc = self.c2str(self._so.lbc_get_map_types())
         return json.loads(desc)
 
     def _initSo(self, attach=1):
         self._checkSo()
-        self._so.lbc_bpf_init.restype = ct.c_int
-        self._so.lbc_bpf_init.argtypes = [ct.c_int, ct.c_int]
         r = self._so.lbc_bpf_init(self._logLevel, attach)
         if r != 0:
             raise InvalidArgsException("so init failed")
         self._need_deinit = True
+
+    def c2str(self, data):
+        return self._ffi.string(data)
+
+    @staticmethod
+    def c2list(data):
+        arr = []
+        for i in range(len(data)):
+            arr.append(data[i])
+        return arr
 
 
 class ClbcBase(ClbcLoad):
@@ -274,12 +313,10 @@ class ClbcBase(ClbcLoad):
         super(ClbcBase, self).__init__(bpf, bpf_str, server, arch, ver,
                                        env, workPath=workPath)
         bpf_so = self._setupSoName(bpf)
+
         self._loadSo(bpf_so)
         self._initSo(attach)
-        self._setupAttatchs()
-        self._setupOtherSyms()
 
-        self._ffi = cffi.FFI()
         self.maps = {}
         self._loadMaps()
 
@@ -288,62 +325,9 @@ class ClbcBase(ClbcLoad):
     def so(self):
         return self._so
 
-    def _setupOtherSyms(self):
-        self._so.lbc_bpf_get_maps_id.restype = ct.c_int
-        self._so.lbc_bpf_get_maps_id.argtypes = [ct.c_char_p]
-        self._so.lbc_map_lookup_elem.restype = ct.c_int
-        self._so.lbc_map_lookup_elem.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
-        self._so.lbc_map_lookup_and_delete_elem.restype = ct.c_int
-        self._so.lbc_map_lookup_and_delete_elem.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
-        self._so.lbc_map_delete_elem.restype = ct.c_int
-        self._so.lbc_map_delete_elem.argtypes = [ct.c_int, ct.c_void_p]
-        self._so.lbc_map_get_next_key.restype = ct.c_int
-        self._so.lbc_map_get_next_key.argtypes = [ct.c_int, ct.c_void_p, ct.c_void_p]
-
-        self._so.lbc_event_loop.restype = ct.c_int
-        self._so.lbc_event_loop.argtypes = [ct.c_int, ct.c_int]
-
-        eventCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_void_p, ct.c_ulong)
-        lostCallback = ct.CFUNCTYPE(None, ct.c_void_p, ct.c_int, ct.c_ulonglong)
-
-        self._so.lbc_set_event_cb.restype = ct.c_int
-        self._so.lbc_set_event_cb.argtypes = [ct.c_int, eventCallback, lostCallback]
-
-    def _setupAttatchs(self):
-        #   int lbc_attach_perf_event(const char* func, const char* attrs, int pid, int cpu, int group_fd)
-        self._so.lbc_attach_perf_event.restype = ct.c_int
-        self._so.lbc_attach_perf_event.argtypes = [ct.c_char_p, ct.c_char_p, ct.c_int, ct.c_int, ct.c_int, ct.c_int]
-        #   int lbc_attach_kprobe(const char* func, const char* sym)
-        self._so.lbc_attach_kprobe.restype = ct.c_int
-        self._so.lbc_attach_kprobe.argtypes = [ct.c_char_p, ct.c_char_p]
-        #   int lbc_attach_kretprobe(const char* func, const char* sym)
-        self._so.lbc_attach_kretprobe.restype = ct.c_int
-        self._so.lbc_attach_kretprobe.argtypes = [ct.c_char_p, ct.c_char_p]
-        #    int lbc_attach_uprobe(const char* func, int pid, const char *binary_path, unsigned long func_offset)
-        self._so.lbc_attach_uprobe.restype = ct.c_int
-        self._so.lbc_attach_uprobe.argtypes = [ct.c_char_p, ct.c_int, ct.c_char_p, ct.c_ulong]
-        #    int lbc_attach_uretprobe(const char* func, int pid, const char *binary_path, unsigned long func_offset)
-        self._so.lbc_attach_uretprobe.restype = ct.c_int
-        self._so.lbc_attach_uretprobe.argtypes = [ct.c_char_p, ct.c_int, ct.c_char_p, ct.c_ulong]
-        #   int lbc_attach_tracepoint(const char* func, const char *tp_category, const char *tp_name)
-        self._so.lbc_attach_tracepoint.restype = ct.c_int
-        self._so.lbc_attach_tracepoint.argtypes = [ct.c_char_p, ct.c_char_p, ct.c_char_p]
-        #   int lbc_attach_raw_tracepoint(const char* func, const char *tp_name)
-        self._so.lbc_attach_raw_tracepoint.restype = ct.c_int
-        self._so.lbc_attach_raw_tracepoint.argtypes = [ct.c_char_p, ct.c_char_p]
-        #   int lbc_attach_cgroup(const char* func, int cgroup_fd)
-        self._so.lbc_attach_cgroup.restype = ct.c_int
-        self._so.lbc_attach_cgroup.argtypes = [ct.c_char_p, ct.c_int]
-        #   int lbc_attach_netns(const char* func, int netns_fd)
-        self._so.lbc_attach_netns.restype = ct.c_int
-        self._so.lbc_attach_netns.argtypes = [ct.c_char_p, ct.c_int]
-        #   int lbc_attach_xdp(const char* func, int ifindex)
-        self._so.lbc_attach_xdp.restype = ct.c_int
-        self._so.lbc_attach_xdp.argtypes = [ct.c_char_p, ct.c_int]
-
     def _loadMaps(self):
         d = self._loadDesc()
-        self._ffi.cdef(d['ffi'])
+        self._ffi.cdef("\n".join([d['ffi'], self._cdef()]), override=True)
         tDict = mapsDict
         dMaps = d['maps']
         for k in dMaps.keys():
@@ -358,16 +342,6 @@ class ClbcBase(ClbcLoad):
             return self.maps[name].event(data)
         except IndexError:
             return None
-
-    def c2str(self, data):
-        return self._ffi.string(data)
-
-    @staticmethod
-    def c2list(data):
-        arr = []
-        for i in range(len(data)):
-            arr.append(data[i])
-        return arr
 
     # https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     def attachPerfEvent(self, function, attrD, pid=0, cpu=-1, group_fd=-1, flags=0):

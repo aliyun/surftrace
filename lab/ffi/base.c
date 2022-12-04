@@ -29,3 +29,8 @@ int user_test(int (*func)(struct struct_user* p), int v) {
 void user_add(int a, int b) {
     printf("%d + %d = %d\n", a, b, a + b);
 }
+
+int user_cb(int (*func)(int, int), int a, int b) {
+    printf("a:%d, b:%d\n", a, b);
+    return func(a, b);
+}
