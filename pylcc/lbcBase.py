@@ -19,6 +19,7 @@ import ctypes as ct
 import json
 import hashlib
 import signal
+import cffi
 from threading import Thread
 from multiprocessing import cpu_count
 from pylcc.lbcMaps import mapsDict
@@ -278,6 +279,7 @@ class ClbcBase(ClbcLoad):
         self._setupAttatchs()
         self._setupOtherSyms()
 
+        self._ffi = cffi.FFI()
         self.maps = {}
         self._loadMaps()
 
@@ -340,21 +342,32 @@ class ClbcBase(ClbcLoad):
         self._so.lbc_attach_xdp.argtypes = [ct.c_char_p, ct.c_int]
 
     def _loadMaps(self):
-        d = self._loadDesc()['maps']
+        d = self._loadDesc()
+        self._ffi.cdef(d['ffi'])
         tDict = mapsDict
-        for k in d.keys():
-            t = d[k]['type']
+        dMaps = d['maps']
+        for k in dMaps.keys():
+            t = dMaps[k]['type']
             if t in tDict:
-                self.maps[k] = tDict[t](self._so, k, d[k])
+                self.maps[k] = tDict[t](self._so, k, dMaps[k], self._ffi)
             else:
                 raise InvalidArgsException("bad type: %s, key: %s" % (t, k))
 
     def getMap(self, name, data, size):
-        stream = ct.string_at(data, size)
         try:
-            return self.maps[name].event(stream)
+            return self.maps[name].event(data)
         except IndexError:
             return None
+
+    def c2str(self, data):
+        return self._ffi.string(data)
+
+    @staticmethod
+    def c2list(data):
+        arr = []
+        for i in range(len(data)):
+            arr.append(data[i])
+        return arr
 
     # https://man7.org/linux/man-pages/man2/perf_event_open.2.html
     def attachPerfEvent(self, function, attrD, pid=0, cpu=-1, group_fd=-1, flags=0):

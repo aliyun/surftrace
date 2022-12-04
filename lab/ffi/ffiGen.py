@@ -24,8 +24,8 @@ class CffiGen(object):
                           "short", "unsigned short", "signed short",
                           "int", "unsigned int", "signed int",
                           "long int", "unsigned long int", "signed long int",
-                          "long long int", "long long unsigned int", "signed long long int",
-                          "long unsigned int",
+                          "long long int", "long long unsigned int", "signed long long int", "unsigned long long int",
+                          "long unsigned int", "long long", "long",
                           "float", "double",
                           "void *", "void", "_Bool",
                           )
@@ -95,7 +95,7 @@ class CffiGen(object):
                     sType, sArr = sType.split("[", 1)
                     sName += "[" + sArr
                 pre += self._checkMemberType(sType)
-                line += "%s\t%s %s,\n" % (tabs, sType, sName)
+                line += "%s\t%s %s;\n" % (tabs, sType, sName)
         line += "%s} %s;\n" % (tabs, topName)
         return pre, line
 
@@ -123,11 +123,13 @@ class CffiGen(object):
                         sType, sArr = sType.split("[", 1)
                         sName += "[" + sArr
                     pre += self._checkMemberType(sType)
-                    line += "%s\t%s %s,\n" % (tabs, sType, sName)
+                    line += "%s\t%s %s;\n" % (tabs, sType, sName)
             line += "%s};\n" % tabs
             self._lines.append(pre + line)
 
     def gen(self, t):
+        if '[' in t:
+            t, _ = t.split('[', 1)
         if t in self._cells or t in self._baseType:
             return
 
@@ -146,7 +148,7 @@ class CffiGen(object):
 if __name__ == "__main__":
     g = CffiGen("bpf.db")
     g.gen("int")
-    g.gen("u64")
+    g.gen("u64[63]")
     g.gen("iw_handler")
     g.gen("struct task_struct")
     g.gen("struct mm_struct")

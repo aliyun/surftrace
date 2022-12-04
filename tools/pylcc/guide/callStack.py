@@ -57,7 +57,7 @@ class CcallStack(ClbcBase):
 
     def _cb(self, cpu, e):
         print("cpu: %d current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
-            cpu, e.c_pid, e.c_comm, e.p_pid, e.p_comm
+            cpu, e.c_pid, self.c2str(e.c_comm), e.p_pid, self.c2str(e.p_comm)
         ))
         stacks = getKStacks(self.maps['call_stack'], e.stack_id, self._ksym)
         print("call trace:")

@@ -62,6 +62,12 @@ def load(soPath="./libbase.so"):
     _cb = cbFunc(cb_py)
     print(so.user_test(_cb, 3))
 
+    p = ffi.new("struct struct_user *")
+    p.s = "hello."
+    print(c2str(p.s))
+    c = ffi.new("int *", 10)
+    print(int(c))
+
 
 if __name__ == "__main__":
     load()

@@ -92,34 +92,44 @@ class CtypeData(object):
         self.__dict__.update(self.localDict)
 
 
-class CtypeTable(CtypeData):
-    def __init__(self, dForm, data=None):
-        super(CtypeTable, self).__init__(dForm, data)
-        self.localData = []
+class CtypeTable(object):
+    def __init__(self, fType, ffi):
+        super(CtypeTable, self).__init__()
+        self._type = fType
+        self._ffiType = self._setupFfi(self._type)
+        self._ffi = ffi
 
-    def _initData(self, data):
-        pass
+        self._localData = []
+
+    @staticmethod
+    def _setupFfi(s):
+        if s.endswith("]"):
+            return s
+        else:
+            return s + " *"
 
     def add(self, data):
-        l = len(data)
-        v = ct.create_string_buffer(l)
-        ct.memmove(v, data, l)
-        self.localData.append(v)
+        self._localData.append(self.load(data))
 
     def clear(self):
-        self.localData = []
+        self._localData = []
 
     def output(self):
-        l = []
-        for r in self.localData:
-            l.append(self._loadData(r, 0, self.dForm))
-        return l
+        return self._localData
 
     def input(self, k):
-        return self._invData(k, self.dForm)
+        print(k)
+        data = struct.pack("i", k)
+        # size = self._ffi.sizeof("%s" % self._type)
+        # v = self._ffi.new("%s *" % self._type, k)
+        # pv = self._ffi.cast("char *", v)
+        # data = struct.pack("c%d" % size, self._ffi.string(pv, size))
+        return data
 
-    def load(self, v):
-        return self._loadData(v, 0, self.dForm)
+    def load(self, data):
+        print(data)
+        print(ct.POINTER(data))
+        return self._ffi.cast(self._ffiType, ct.POINTER(data))
 
 
 class CeventBase(object):
@@ -133,17 +143,16 @@ class CeventBase(object):
 
 
 class CtableBase(CeventBase):
-    def __init__(self, so, name, dTypes):
+    def __init__(self, so, name, dTypes, ffi):
         super(CtableBase, self).__init__(so, name)
-        self._kd = dTypes['ktype']
-        self._vd = dTypes['vtype']
-        self.keys = CtypeTable(self._kd)
-        self.values = CtypeTable(self._vd)
+        self._ffi = ffi
+        self._kd = dTypes['fktype']
+        self._vd = dTypes['fvtype']
+        self.keys = CtypeTable(self._kd, ffi)
+        self.values = CtypeTable(self._vd, ffi)
 
-    def _getSize(self, dCell):
-        if dCell['array']:
-            return dCell['array'] * dCell['size']
-        return dCell['size']
+    def _getSize(self, fType):
+        return self._ffi.sizeof(fType)
 
     def get(self):
         ksize = self._getSize(self._kd)
@@ -197,6 +206,7 @@ class CtableBase(CeventBase):
         vsize = self._getSize(self._vd)
         key = self.keys.input(k)
         v = ct.create_string_buffer(vsize)
+        print(key, vsize)
         if self._so.lbc_map_lookup_elem(self._id, key, v) == 0:
             return self.values.load(v)
         return None
@@ -211,13 +221,13 @@ class CtableBase(CeventBase):
 
 
 class CmapsHash(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsHash, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsHash, self).__init__(so, name, dTypes, ffi)
 
 
 class CmapsArray(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsArray, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsArray, self).__init__(so, name, dTypes, ffi)
 
     def get(self, size=10):
         a = []
@@ -227,8 +237,8 @@ class CmapsArray(CtableBase):
 
 
 class CmapsHist2(CmapsArray):
-    def __init__(self, so, name, dTypes):
-        super(CmapsHist2, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsHist2, self).__init__(so, name, dTypes, ffi)
 
     def get(self, size=64):
         return super(CmapsHist2, self).get(size)
@@ -242,8 +252,8 @@ class CmapsHist2(CmapsArray):
 
 
 class CmapsHist10(CmapsArray):
-    def __init__(self, so, name, dTypes):
-        super(CmapsHist10, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsHist10, self).__init__(so, name, dTypes, ffi)
 
     def get(self, size=20):
         return super(CmapsHist10, self).get(size)
@@ -257,39 +267,48 @@ class CmapsHist10(CmapsArray):
 
 
 class CmapsLruHash(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsHash, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsHash, self).__init__(so, name, dTypes, ffi)
 
 
 class CmapsPerHash(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsPerHash, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsPerHash, self).__init__(so, name, dTypes, ffi)
 
 
 class CmapsPerArray(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsPerArray, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsPerArray, self).__init__(so, name, dTypes, ffi)
 
 
 class CmapsLruPerHash(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsLruPerHash, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsLruPerHash, self).__init__(so, name, dTypes, ffi)
 
 
 class CmapsStack(CtableBase):
-    def __init__(self, so, name, dTypes):
-        super(CmapsStack, self).__init__(so, name, dTypes)
+    def __init__(self, so, name, dTypes, ffi):
+        super(CmapsStack, self).__init__(so, name, dTypes, ffi)
 
     def getArr(self, stack_id):
         return self.getKeyValue(stack_id)
 
 
 class CmapsEvent(CeventBase):
-    def __init__(self, so, name, dTypes):
+    def __init__(self, so, name, dTypes, ffi):
         super(CmapsEvent, self).__init__(so, name)
-        self.__d = dTypes['vtype']
+        self._d = dTypes["fvtype"]
+        self._ffiType = self._setupFfi(self._d)
         self.cb = None
         self.lostcb = None
+        self._ffi = ffi
+
+    @staticmethod
+    def _setupFfi(s):
+        if s.endswith("]"):
+            return s
+        else:
+            return s + " *"
 
     def open_perf_buffer(self, cb, lost=None):
         self.cb = cb
@@ -322,8 +341,7 @@ class CmapsEvent(CeventBase):
         self._so.lbc_event_loop(self._id, timeout)
 
     def event(self, data):
-        e = CtypeData(self.__d, data)
-        return e
+        return self._ffi.cast(self._ffiType, data)
 
 
 mapsDict = {'event': CmapsEvent,
