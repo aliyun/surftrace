@@ -49,7 +49,7 @@ class CtypeTable(object):
         return self._localData
 
     def input(self, k):
-        v = self._ffi.new(self._type, k)
+        v = self._ffi.new(self.ffiType, k)
         p = self._ffi.cast("void *", v)
         return p
 
