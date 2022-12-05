@@ -22,13 +22,103 @@ from surftrace import InvalidArgsException
 from surftrace.surfCommon import CsurfList
 
 
+class CffiValue(object):
+    def __init__(self):
+        super(CffiValue, self).__init__()
+
+    def __repr__(self):
+        res = {}
+        for mem in dir(self):
+            if mem.startswith("__") and mem.endswith("__"):
+                continue
+            res[mem] = getattr(self, mem)
+        return str(res)
+
+
+class CffiObj(object):
+    def __init__(self, ffi):
+        super(CffiObj, self).__init__()
+        self._ffi = ffi
+
+    def value(self, e):
+        mems = dir(e)
+        if len(mems) > 0:
+            v = self._values(e, mems)
+        else:
+            v = self._value(e)
+        return v
+
+    def _value(self, e):
+        sType = self._ffi.getctype(self._ffi.typeof(e))
+        cEnd = sType[-1]
+        if cEnd == "*":
+            v = self._ffi.unpack(e, 1)[0]
+        elif cEnd == "]":
+            v = self._array(e, sType)
+        return v
+
+    def _values(self, e, mems):
+        v = CffiValue()
+        for mem in mems:
+            vMem = getattr(e, mem)
+            if type(getattr(e, mem)) in (int, float, str):
+                setattr(v, mem, vMem)
+            else:   # _cffi_backend._CDataBase
+                tMem = self._ffi.getctype(self._ffi.typeof(vMem))
+                cEnd = tMem[-1]
+                if cEnd == ']':
+                    setattr(v, mem, self._array(vMem, tMem))
+                elif "*" in tMem:
+                    setattr(v, mem, self._point(tMem))
+                elif dir(vMem) > 0:     # for struct enum.
+                    setattr(v, mem, self.value(vMem))
+                else:
+                    raise ValueError("not support type: %s" % tMem, vMem)
+        return v
+
+    def _array(self, e, tMem):
+        tType, sArr = tMem.split("[", 1)
+        return self._unarry(tType, e, sArr)
+
+    def _unarry(self, tType, e, sArr):
+        res = None
+        sNum, remain = sArr.split(']', 1)
+        num = int(sNum)
+        if num > 0:
+            res = []
+            t = tType.split(" ")[-1]
+            if t in ("char", "short", "int", "long", "float", "double", "enum"):
+                if tType == "char":
+                    res = self._ffi.string(e)
+                else:
+                    for i in range(num):
+                        res.append(e[i])
+            elif len(remain):  # multi array
+                for i in range(num):
+                    res.append(self._unarry(tType, e[i], remain[1:]))
+            elif "*" in tType:
+                for i in range(num):
+                    res.append(self._point(tType))
+            elif dir(e) > 0:
+                for i in range(num):
+                    res.append(self.value(e[i]))
+            else:
+                raise ValueError("not support type: %s" % tType, e)
+        return res
+
+    @staticmethod
+    def _point(sType):
+        res = "point:%s" % sType
+        return res
+
+
 class CtypeTable(object):
     def __init__(self, fType, ffi):
         super(CtypeTable, self).__init__()
         self._type = fType
-        self._ffi = ffi
         self.ffiType = self._setupFfi(self._type)
         self.ffiSize = ffi.sizeof(self._type)
+        self._obj = CffiObj(ffi)
 
         self._localData = []
 
@@ -48,29 +138,31 @@ class CtypeTable(object):
     def output(self):
         return self._localData
 
-    def input(self, k):
-        v = self._ffi.new(self.ffiType, k)
-        p = self._ffi.cast("void *", v)
-        return p
-
     def load(self, data):
-        return self._ffi.cast(self.ffiType, data)
+        return self._obj.value(data)
 
 
 class CeventBase(object):
-    def __init__(self, so, name):
+    def __init__(self, so, name, ffi):
         self._so = so
         self._id = self._so.lbc_bpf_get_maps_id(name.encode('utf-8'))
         if self._id < 0:
             raise InvalidArgsException("map %s, not such event" % name)
         self.name = name
         super(CeventBase, self).__init__()
+        self._ffi = ffi
+
+    @staticmethod
+    def _setupFfi(s):
+        if s.endswith("]"):
+            return s
+        else:
+            return s + " *"
 
 
 class CtableBase(CeventBase):
     def __init__(self, so, name, dTypes, ffi):
-        super(CtableBase, self).__init__(so, name)
-        self._ffi = ffi
+        super(CtableBase, self).__init__(so, name, ffi)
         self._kd = dTypes['fktype']
         self._vd = dTypes['fvtype']
         self.keys = CtypeTable(self._kd, ffi)
@@ -123,11 +215,13 @@ class CtableBase(CeventBase):
         return self.keys.output()
 
     def getKeyValue(self, k):
-        key = self.keys.input(k)
-        v = self._ffi.new(self.values.ffiType)
-        if self._so.lbc_map_lookup_elem(self._id, key, v) == 0:
-            return self.values.load(v)
-        return None
+        res = None
+        key = self._ffi.new(self.keys.ffiType, k)
+        value = self._ffi.new(self.values.ffiType)
+        if self._so.lbc_map_lookup_elem(self._id, key, value) == 0:
+            pass
+        #     res = self.values.load(value)
+        return res
 
     def clear(self):
         k1 = self._ffi.new(self.keys.ffiType)
@@ -185,7 +279,7 @@ class CmapsHist10(CmapsArray):
 
 class CmapsLruHash(CtableBase):
     def __init__(self, so, name, dTypes, ffi):
-        super(CmapsHash, self).__init__(so, name, dTypes, ffi)
+        super(CmapsLruHash, self).__init__(so, name, dTypes, ffi)
 
 
 class CmapsPerHash(CtableBase):
@@ -213,19 +307,12 @@ class CmapsStack(CtableBase):
 
 class CmapsEvent(CeventBase):
     def __init__(self, so, name, dTypes, ffi):
-        super(CmapsEvent, self).__init__(so, name)
+        super(CmapsEvent, self).__init__(so, name, ffi)
         self._d = dTypes["fvtype"]
         self.ffiType = self._setupFfi(self._d)
         self.cb = None
         self.lostcb = None
-        self._ffi = ffi
-
-    @staticmethod
-    def _setupFfi(s):
-        if s.endswith("]"):
-            return s
-        else:
-            return s + " *"
+        self._obj = CffiObj(ffi)
 
     def open_perf_buffer(self, cb, lost=None):
         self.cb = cb
@@ -256,7 +343,8 @@ class CmapsEvent(CeventBase):
         self._so.lbc_event_loop(self._id, timeout)
 
     def event(self, data):
-        return self._ffi.cast(self.ffiType, data)
+        e = self._ffi.cast(self.ffiType, data)
+        return self._obj.value(e)
 
 
 mapsDict = {'event': CmapsEvent,

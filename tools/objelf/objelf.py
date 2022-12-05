@@ -12,6 +12,7 @@
 """
 __author__ = 'liaozhaoyan'
 
+import datetime
 import os
 import sys
 import shlex
@@ -183,7 +184,7 @@ class CmonThread(Thread):
 
     def run(self):
         while True:
-            time.sleep(0.5)
+            time.sleep(0.1)
             if self._mon.poll() is not None:
                 self._mon.closePipe()
                 break
@@ -260,15 +261,16 @@ class CobjElf(object):
             # with open("vm.json", "w") as f:
             #     json.dump(res, f)
             obj.walks(res)
-            del obj, res
         self.closePipe()
-        t.join(5)
+        t.join(0.1)
 
 
 if __name__ == "__main__":
-    e = CobjElf("/root/1ext/vmhive/x86_64/vmlinux/anolis/vmlinux-5.10.134-12.an8.x86_64")
+    e = CobjElf("/home/lbc/.output/lbc.bpf.o")
     # e.out("vm.db")
-    e.toDb("vmlinux", "vm.db")
+    t1 = datetime.datetime.now()
+    e.toDb("bpf", "bpf.db")
+    print("to Db.", datetime.datetime.now() - t1)
     # t = Ctest()
     # t = Ctest("./vm.txt")
     # t.test()

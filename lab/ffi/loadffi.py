@@ -40,6 +40,12 @@ def c2list(data):
     return arr
 
 
+class CffiObj(object):
+    def __init__(self, cffi, e):
+        for mem in dir(e):
+            print(getattr(e, mem))
+
+
 def cb_py(p):
     pData = ffi.cast("struct struct_user *", p)
     print(type(pData.s), type(pData.a), type(pData.c))
@@ -63,10 +69,13 @@ def load(soPath="./libbase.so"):
     print(so.user_test(_cb, 3))
 
     p = ffi.new("struct struct_user *")
+    print(p)
     p.s = "hello."
     print(c2str(p.s))
+    CffiObj(ffi, p)
     c = ffi.new("int *", 10)
-    print(int(c))
+    print(c)
+    CffiObj(ffi, c)
 
 
 if __name__ == "__main__":

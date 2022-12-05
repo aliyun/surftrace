@@ -12,6 +12,7 @@
 """
 __author__ = 'liaozhaoyan'
 
+import datetime
 import os
 import sqlite3
 import json
@@ -58,8 +59,12 @@ class Cobj2db(object):
     def _setupDb(self, dbPath):
         if os.path.exists(dbPath):
             db = sqlite3.connect(dbPath)
+            db.execute("PRAGMA journal_mode = MEMORY")
+            db.execute("PRAGMA synchronous = OFF")
             return db
         db = sqlite3.connect(dbPath)
+        db.execute("PRAGMA journal_mode = MEMORY")
+        db.execute("PRAGMA synchronous = OFF")
         cur = db.cursor()
         sqls = [
             """CREATE TABLE files ( 
@@ -507,7 +512,9 @@ class Cobj2db(object):
 
     def walks(self, desc):
         self._cur = self._db.cursor()
+        self._cur.execute("BEGIN TRANSACTION")
         self._toDb(desc)
+        self._cur.execute("END TRANSACTION")
         self._cur.close()
         self._db.commit()
         self._db.close()

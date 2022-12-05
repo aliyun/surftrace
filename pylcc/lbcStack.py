@@ -72,15 +72,16 @@ class ClbcUstack(object):
 def getKStacks(maps, stack_id, elfSym, sLen=-1):
     arr = []
     stks = maps.getArr(stack_id)
-    if stks:
+    if stks is not None:
         if sLen == -1:
             sLen = len(stks)
         for i in range(sLen):
-            if stks[i]:
+            if stks[i] != 0:
                 name, _ = elfSym.ksymSearch(stks[i])
                 arr.append(name)
             else:
                 break
+        print(arr)
     return arr
 
 
