@@ -116,6 +116,7 @@ class CtypeTable(object):
     def __init__(self, fType, ffi):
         super(CtypeTable, self).__init__()
         self._type = fType
+        self._ffi = ffi
         self.ffiType = self._setupFfi(self._type)
         self.ffiSize = ffi.sizeof(self._type)
         self._obj = CffiObj(ffi)
@@ -129,8 +130,8 @@ class CtypeTable(object):
         else:
             return s + " *"
 
-    def add(self, data):
-        self._localData.append(self.load(data))
+    def add(self, p):
+        self._localData.append(self.load(p))
 
     def clear(self):
         self._localData = []
@@ -138,7 +139,8 @@ class CtypeTable(object):
     def output(self):
         return self._localData
 
-    def load(self, data):
+    def load(self, p):
+        data = self._ffi.cast(self.ffiType, p)
         return self._obj.value(data)
 
 
@@ -175,9 +177,9 @@ class CtableBase(CeventBase):
         self.keys.clear()
         self.values.clear()
 
-        v = self._ffi.new(self.values.ffiType)
-        k1 = self._ffi.new(self.keys.ffiType)
-        k2 = self._ffi.new(self.keys.ffiType)
+        v = self._ffi.new("void **")
+        k1 = self._ffi.new("void **")
+        k2 = self._ffi.new("void **")
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             self._so.lbc_map_lookup_elem(self._id, k2, v)
@@ -189,9 +191,9 @@ class CtableBase(CeventBase):
         self.keys.clear()
         self.values.clear()
 
-        v = self._ffi.new(self.values.ffiType)
-        k1 = self._ffi.new(self.keys.ffiType)
-        k2 = self._ffi.new(self.keys.ffiType)
+        v = self._ffi.new("void **")
+        k1 = self._ffi.new("void **")
+        k2 = self._ffi.new("void **")
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             r = self._so.lbc_map_lookup_and_delete_elem(self._id, k2, v)
@@ -207,8 +209,8 @@ class CtableBase(CeventBase):
         self.keys.clear()
         self.values.clear()
 
-        k1 = self._ffi.new(self.keys.ffiType)
-        k2 = self._ffi.new(self.keys.ffiType)
+        k1 = self._ffi.new("void **")
+        k2 = self._ffi.new("void **")
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             self._ffi.memmove(k1, k2, self.keys.ffiSize)
@@ -217,15 +219,14 @@ class CtableBase(CeventBase):
     def getKeyValue(self, k):
         res = None
         key = self._ffi.new(self.keys.ffiType, k)
-        value = self._ffi.new(self.values.ffiType)
+        value = self._ffi.new("void **")
         if self._so.lbc_map_lookup_elem(self._id, key, value) == 0:
-            pass
-        #     res = self.values.load(value)
+            res = self.values.load(value)
         return res
 
     def clear(self):
-        k1 = self._ffi.new(self.keys.ffiType)
-        k2 = self._ffi.new(self.keys.ffiType)
+        k1 = self._ffi.new("void **")
+        k2 = self._ffi.new("void **")
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self._so.lbc_map_delete_elem(self._id, k2)
             self._ffi.memmove(k1, k2, self.keys.ffiSize)
