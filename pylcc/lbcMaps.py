@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-
+import sys
 try:
     from collections.abc import MutableMapping
 except ImportError:
@@ -23,83 +23,165 @@ from surftrace.surfCommon import CsurfList
 
 
 class CffiValue(object):
+    """
+    This is the object container provided for types like structs.
+    If the numeric type in the data stream is not within python's numeric range,
+    such as struct union etc, then need a container to load all values.
+    """
     def __init__(self):
         super(CffiValue, self).__init__()
 
     def __repr__(self):
+        """
+        object native method, show ffi value information.
+        Returns:
+         ffi value information
+        Raises:
+         None
+        """
         res = {}
         for mem in dir(self):
             if mem.startswith("__") and mem.endswith("__"):
+                # strip object native member
                 continue
             res[mem] = getattr(self, mem)
         return str(res)
 
 
-class CffiObj(object):
+class CffiTrans(object):
+    """
+    This is the conversion class of the FFI interface,
+    you only need to instantiate the class and call the value member function,
+    then you will get the native python value from c stream.
+    """
+    if sys.version_info.major == 2:
+        # long is a data type that can be displayed directly for python2
+        _directList = (int, str, float, long)
+    else:
+        _directList = (int, str, float)
+    _cNativeType = ("char", "short", "int", "long", "float", "double", "enum")
+
     def __init__(self, ffi):
-        super(CffiObj, self).__init__()
+        """
+        object native method, show ffi value information.
+        Parameters:
+         param1 - cffi object to analytical data
+        Returns:
+         CffiTrans
+        """
+        super(CffiTrans, self).__init__()
         self._ffi = ffi
 
     def value(self, e):
+        """
+        transform ffi cast stream to python value.
+        Parameters:
+         param1 - ffi cast stream
+        Returns:
+         python value, may int/string/CffiValue
+        """
         mems = dir(e)
-        if len(mems) > 0:
+        if len(mems) > 0:   # check cast stream contains child nodes
             v = self._values(e, mems)
         else:
             v = self._value(e)
         return v
 
     def _value(self, e):
+        """
+        transform ffi cast stream to python value, single mode.
+        Parameters:
+         param1 - ffi cast stream
+        Returns:
+         python value, just a single value.
+        Raise:
+         ValueError not support type.
+        """
         sType = self._ffi.getctype(self._ffi.typeof(e))
         cEnd = sType[-1]
-        if cEnd == "*":
-            v = self._ffi.unpack(e, 1)[0]
+        if cEnd == "*":     # for point and native value
+            if sType.endswith("* *"):   # point
+                v = self._point(sType[:-2])
+            else:
+                v = self._ffi.unpack(e, 1)[0]
         elif cEnd == "]":
             v = self._array(e, sType)
+        else:
+            raise ValueError("not support type: %s" % sType)
         return v
 
     def _values(self, e, mems):
+        """
+        transform ffi cast stream to python value, multi mode.
+        Parameters:
+         param1 - ffi cast stream
+         param2 - ffi cast stream members
+        Returns:
+         CffiValue object.
+        Raise:
+         ValueError not support type.
+        """
         v = CffiValue()
         for mem in mems:
             vMem = getattr(e, mem)
-            if type(getattr(e, mem)) in (int, float, str):
+            if type(getattr(e, mem)) in CffiTrans._directList:   # direct type
                 setattr(v, mem, vMem)
-            else:   # _cffi_backend._CDataBase
+            else:
                 tMem = self._ffi.getctype(self._ffi.typeof(vMem))
-                cEnd = tMem[-1]
-                if cEnd == ']':
+                cEnd = tMem[-1]     # tMem may like struct child *[2], so check by reverse order
+                if cEnd == ']':     # array type at first
                     setattr(v, mem, self._array(vMem, tMem))
-                elif "*" in tMem:
+                elif "*" in tMem:   # then point type
                     setattr(v, mem, self._point(tMem))
-                elif dir(vMem) > 0:     # for struct enum.
+                elif dir(vMem) > 0:     # for struct etc，recursive call value
                     setattr(v, mem, self.value(vMem))
                 else:
                     raise ValueError("not support type: %s" % tMem, vMem)
         return v
 
     def _array(self, e, tMem):
+        """
+        transform ffi array to python value, parse array size at first.
+        Parameters:
+         param1 - ffi cast stream
+         param2 - ffi member from stream
+        Returns:
+         python list
+        """
         tType, sArr = tMem.split("[", 1)
-        return self._unarry(tType, e, sArr)
+        return self._unpackArry(tType, e, sArr)
 
-    def _unarry(self, tType, e, sArr):
+    def _unpackArry(self, tType, e, sArr):
+        """
+        unpack ffi array to python value, parse array size at first.
+        Parameters:
+         param1 - ffi member type from stream
+         param2 - ffi cast stream
+         param3 - size of Array, string type.
+        Returns:
+         python list
+        Raise:
+         ValueError not support type.
+        """
         res = None
         sNum, remain = sArr.split(']', 1)
         num = int(sNum)
-        if num > 0:
+        if num > 0:     # may zero array
             res = []
             t = tType.split(" ")[-1]
-            if t in ("char", "short", "int", "long", "float", "double", "enum"):
-                if tType == "char":
+            if len(remain):  # multi array, recursive call
+                for i in range(num):
+                    res.append(self._unpackArry(tType, e[i], remain[1:]))
+            elif t in CffiTrans._cNativeType:
+                if tType == "char":     # for string
                     res = self._ffi.string(e)
                 else:
-                    for i in range(num):
+                    for i in range(num):  # for normal value
                         res.append(e[i])
-            elif len(remain):  # multi array
-                for i in range(num):
-                    res.append(self._unarry(tType, e[i], remain[1:]))
-            elif "*" in tType:
+            elif "*" in tType:  # point
                 for i in range(num):
                     res.append(self._point(tType))
-            elif dir(e) > 0:
+            elif dir(e) > 0:   # struct? array type
                 for i in range(num):
                     res.append(self.value(e[i]))
             else:
@@ -108,6 +190,14 @@ class CffiObj(object):
 
     @staticmethod
     def _point(sType):
+        """
+        show point information.
+        Parameters:
+         param1 - ffi cast stream
+         param2 - ffi member from stream
+        Returns:
+         python string to show point info.
+        """
         res = "point:%s" % sType
         return res
 
@@ -116,10 +206,9 @@ class CtypeTable(object):
     def __init__(self, fType, ffi):
         super(CtypeTable, self).__init__()
         self._type = fType
-        self._ffi = ffi
         self.ffiType = self._setupFfi(self._type)
         self.ffiSize = ffi.sizeof(self._type)
-        self._obj = CffiObj(ffi)
+        self._obj = CffiTrans(ffi)
 
         self._localData = []
 
@@ -130,8 +219,8 @@ class CtypeTable(object):
         else:
             return s + " *"
 
-    def add(self, p):
-        self._localData.append(self.load(p))
+    def add(self, data):
+        self._localData.append(self.load(data))
 
     def clear(self):
         self._localData = []
@@ -139,8 +228,7 @@ class CtypeTable(object):
     def output(self):
         return self._localData
 
-    def load(self, p):
-        data = self._ffi.cast(self.ffiType, p)
+    def load(self, data):
         return self._obj.value(data)
 
 
@@ -177,9 +265,9 @@ class CtableBase(CeventBase):
         self.keys.clear()
         self.values.clear()
 
-        v = self._ffi.new("void **")
-        k1 = self._ffi.new("void **")
-        k2 = self._ffi.new("void **")
+        v = self._ffi.new(self.values.ffiType)
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             self._so.lbc_map_lookup_elem(self._id, k2, v)
@@ -191,9 +279,9 @@ class CtableBase(CeventBase):
         self.keys.clear()
         self.values.clear()
 
-        v = self._ffi.new("void **")
-        k1 = self._ffi.new("void **")
-        k2 = self._ffi.new("void **")
+        v = self._ffi.new(self.values.ffiType)
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             r = self._so.lbc_map_lookup_and_delete_elem(self._id, k2, v)
@@ -209,8 +297,8 @@ class CtableBase(CeventBase):
         self.keys.clear()
         self.values.clear()
 
-        k1 = self._ffi.new("void **")
-        k2 = self._ffi.new("void **")
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self.keys.add(k2)
             self._ffi.memmove(k1, k2, self.keys.ffiSize)
@@ -219,14 +307,14 @@ class CtableBase(CeventBase):
     def getKeyValue(self, k):
         res = None
         key = self._ffi.new(self.keys.ffiType, k)
-        value = self._ffi.new("void **")
+        value = self._ffi.new(self.values.ffiType)
         if self._so.lbc_map_lookup_elem(self._id, key, value) == 0:
             res = self.values.load(value)
         return res
 
     def clear(self):
-        k1 = self._ffi.new("void **")
-        k2 = self._ffi.new("void **")
+        k1 = self._ffi.new(self.keys.ffiType)
+        k2 = self._ffi.new(self.keys.ffiType)
         while self._so.lbc_map_get_next_key(self._id, k1, k2) == 0:
             self._so.lbc_map_delete_elem(self._id, k2)
             self._ffi.memmove(k1, k2, self.keys.ffiSize)
@@ -313,7 +401,7 @@ class CmapsEvent(CeventBase):
         self.ffiType = self._setupFfi(self._d)
         self.cb = None
         self.lostcb = None
-        self._obj = CffiObj(ffi)
+        self._obj = CffiTrans(ffi)
 
     def open_perf_buffer(self, cb, lost=None):
         self.cb = cb

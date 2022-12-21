@@ -15,7 +15,7 @@ __author__ = 'liaozhaoyan'
 
 import argparse
 from time import strftime
-from pylcc.lbcBase import ClbcBase
+from pylcc.lbcBase import ClbcBase, CeventThread
 
 bpfProg = r"""
 #include "lbc.h"
@@ -101,19 +101,14 @@ class CfileLife(ClbcBase):
         super(CfileLife, self).__init__("filelife", bpf_str=bpfProg)
         print("%-8s %-6s %-16s %-7s %s" % ("TIME", "PID", "COMM", "AGE(s)", "FILE"))
 
-    def _cb(self, cpu, data, size):
-        e = self.getMap('events', data, size)
+    def _cb(self, cpu, e):
         print("%-8s %-6d %-16s %-7.2f %s" % (strftime("%H:%M:%S"), e.pid,
                                              e.comm, float(e.delta) / 1000,
                                              e.fname))
 
     def loop(self):
-        self.maps['events'].open_perf_buffer(self._cb)
-        try:
-            self.maps['events'].perf_buffer_poll()
-        except KeyboardInterrupt:
-            print("key interrupt.")
-            exit()
+        CeventThread(self, 'events', self._cb)
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

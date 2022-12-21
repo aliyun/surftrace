@@ -13,6 +13,8 @@
 """
 __author__ = 'liaozhaoyan'
 
+import os
+
 from pylcc.lbcBase import ClbcBase, CeventThread
 from surftrace.surfElf import CelfKsym
 from pylcc.lbcStack import getKStacks
@@ -61,7 +63,6 @@ class CcallStack(ClbcBase):
         ))
 
         stacks = getKStacks(self.maps['call_stack'], e.stack_id, self._ksym)
-        print(stacks)
         print("call trace:")
         for s in stacks:
             print(s)

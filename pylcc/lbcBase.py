@@ -264,7 +264,7 @@ class ClbcLoad(object):
         int  lbc_map_delete_elem(int id, void *key);
         int  lbc_map_update_elem(int id, void *key, void *value);
         int  lbc_map_get_next_key(int id, void *key, void *next_key);
-        int  lbc_attach_perf_event(char* func, int pfd);
+        int  lbc_attach_perf_event(const char* func, const char* attr_string, int pid, int cpu, int group_fd, int flags);
         int  lbc_attach_kprobe(char* func, char* sym);
         int  lbc_attach_kretprobe(char* func, char* sym);
         int  lbc_attach_uprobe(char* func, int pid, char *binary_path, unsigned long func_offset);

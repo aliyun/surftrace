@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 -------------------------------------------------
-   File Name：     surfElf
+   File Name：     ksymFast.py
    Description :
    Author :       liaozhaoyan
-   date：          2022/10/26
+   date：          2022/12/20
 -------------------------------------------------
    Change Activity:
-                   2022/10/26:
+                   2022/12/20:
 -------------------------------------------------
 """
 __author__ = 'liaozhaoyan'
@@ -115,41 +115,8 @@ class CksymFast(object):
         return None
 
 
-class CelfSym(object):
-    def __init__(self, path):
-        super(CelfSym, self).__init__()
-        self._path = path
-
-    def symSearch(self, addr):
-        return "", -1
-
-    def addr2sym(self, addr):
-        return ""
-
-    def symAddr(self, sym):
-        return 0
-
-    def symOffset(self):
-        return 0
-
-
-class CelfKsym(CksymFast):
-    def __init__(self):
-        super(CelfKsym, self).__init__()
-
-    def ksymSearch(self, addr):
-        if addr > 0:
-            cell = self.addr2sym(addr)
-            if cell:
-                return cell["syms"], cell["addr"]
-        return "", -1
-
-    def ksymAddr(self, sym):
-        cell = self.sym2addr(sym)
-        if cell:
-            return cell["addr"]
-        return -1
-
-
 if __name__ == "__main__":
+    f = CksymFast()
+    print(f.addr2sym(0xffffffffc024fac8))
+    print(f.sym2addr("print_unex"))
     pass

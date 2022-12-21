@@ -1,50 +1,38 @@
-# 1、coolbpf server镜像说明
+# 1、coolbpf compile server镜像说明
 ![](image)
-&emsp; coolbpf镜像可以提供以下服务:
+&emsp; coolbpf compile server镜像可以提供以下服务:
 
-* surftrace数据在线解析服务
-* lcc bpf.c文件远程编译服务
+* bpf.c 文件编译服务
 * btf文件在线获取服务
 
-&emsp;要运行coolbpf镜像，需要具备以下条件：
+&emsp;要运行coolbpf server镜像，需要以下准备工作：
 
-1. 目标实例支持docker
-2. 目标实例预留100G左右的磁盘空间（存放btf/db文件）
-3. 如果要实时更新btf/db，需要支持访问pylcc.openanolis.cn
-4. surftrace >=0.6.3 pylcc >= 0.2.2
+1. 目标实例安装docker或者其它容器服务
+2. 目标实例预留100G左右的磁盘空间（存放btf/header/db文件）
+3. 如果要实时更新btf/header/db，需要支持访问pylcc.openanolis.cn
+4. surftrace >=0.7.0 pylcc >= 0.2.10
+5. 默认绑定7655 tcp 端口
 
 # 2、搭建coolbpf 编译服务
-&emsp;我们以在192.168.22.4 实例上搭建lbccompile服务上搭建服务为例。
+&emsp;我们以在192.168.22.4 实例上搭建coolbpf compile server服务上搭建服务为例。
 ## 2.1、同步db/btf：
-&emsp;在实例上创建目录，如/root/1ext/hive，并在该目录下，同步db/btf数据源：
+&emsp;在实例上创建目录，如/root/1ext/hive，并在该目录下，同步db/btf/header数据源：
 
 ```bash
 rsync -av pylcc.openanolis.cn::pylcc/btf .
 rsync -av pylcc.openanolis.cn::pylcc/db .
 rsync -av pylcc.openanolis.cn::pylcc/header .
 ```
-&emsp;可以将rsync 放到crontab 定时任务中去，与远端定期保持同步。
+&emsp;建议将rsync 放到crontab 定时任务中去，与远端数据源定期保持同步。
 ## 2.2、启动容器
+
 ```bash
-docker run  --entrypoint="/bin/bash" --name surfd  -v /root/1ext/hive:/home/hive -p 7655:7655 -itd registry.cn-hangzhou.aliyuncs.com/alinux/coolbpf /home/lbc/run.sh 127.0.0.1
+docker run  --entrypoint="/bin/bash" --name surfd  -v /root/1ext/hive:/home/hive -p 7655:7655 -itd registry.cn-hangzhou.aliyuncs.com/sysom/coolbpf:v1.14 /home/lbc/run.sh 127.0.0.1
 ```
 
 ## 2.3、验证
-```bash
-export LBC_SERVER=192.168.22.4
-surftrace 'p _do_fork'
 
-echo 'p:f0 _do_fork' >> /sys/kernel/debug/tracing/kprobe_events
-echo 1 > /sys/kernel/debug/tracing/instances/surftrace/events/kprobes/f0/enable
-echo 0 > /sys/kernel/debug/tracing/instances/surftrace/options/stacktrace
-echo 1 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
- <...>-39643 [002] .... 2073472.895508: f0: (_do_fork+0x0/0x3a0)
- staragentd-27114 [003] .... 2073472.977518: f0: (_do_fork+0x0/0x3a0)
- <...>-39662 [001] .... 2073472.980098: f0: (_do_fork+0x0/0x3a0)
- ……
-```
-
-hello.py
+hello.py 代码
 
 ```python
 import time
@@ -77,6 +65,7 @@ if __name__ == "__main__":
 ```
 
 执行：
+
 ```
 #python hello.py
 remote server compile success.

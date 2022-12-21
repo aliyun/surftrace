@@ -61,6 +61,10 @@ class ChashMap(ClbcBase):
         print("cpu: %d current pid:%d, comm:%s. wake_up_new_task pid: %d, comm: %s" % (
             cpu, e.c_pid, e.c_comm, e.p_pid, e.p_comm
         ))
+        d = self.maps['pid_cnt'].get()
+        print(d)
+        if len(d) > 10:
+            self.maps['pid_cnt'].clear()
 
     def _exit(self):
         dMap = self.maps['pid_cnt']

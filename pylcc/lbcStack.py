@@ -81,7 +81,6 @@ def getKStacks(maps, stack_id, elfSym, sLen=-1):
                 arr.append(name)
             else:
                 break
-        print(arr)
     return arr
 
 

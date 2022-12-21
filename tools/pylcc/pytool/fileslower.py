@@ -15,7 +15,7 @@ __author__ = 'liaozhaoyan'
 
 import argparse
 import time
-from pylcc.lbcBase import ClbcBase
+from pylcc.lbcBase import ClbcBase, CeventThread
 
 bpfProg = r"""
 #include "lbc.h"
@@ -161,9 +161,7 @@ class CfileSlower(ClbcBase):
         print("%-8s %-14s %-6s %1s %-7s %7s %s" % ("TIME(s)", "COMM", "TID", "D",
                                                    "BYTES", "LAT(ms)", "FILENAME"))
 
-    def _cb(self, cpu, data, size):
-        e = self.getMap('events', data, size)
-
+    def _cb(self, cpu, e):
         ms = float(e.delta_us) / 1000
         name = e.name
         print("%-8.3f %-14.14s %-6s %1s %-7s %7.2f %s" % (
@@ -171,12 +169,8 @@ class CfileSlower(ClbcBase):
             e.pid, mode_s[e.mode], e.sz, ms, name))
 
     def loop(self):
-        self.maps['events'].open_perf_buffer(self._cb)
-        try:
-            self.maps['events'].perf_buffer_poll()
-        except KeyboardInterrupt:
-            print("key interrupt.")
-            exit()
+        CeventThread(self, 'events', self._cb)
+        self.waitInterrupt()
 
 
 if __name__ == "__main__":

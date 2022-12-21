@@ -117,7 +117,6 @@ class CperfSys(ClbcBase):
             last = root
             syms = getKStacks(self.maps['call_stack'], k, self._ksym)
             for sym in syms[::-1]:
-                sym = sym.encode()
                 node = self._filterChild(tree, last.identifier, sym)
                 if node is None:
                     node = tree.create_node(tag=sym, parent=last, data={"func": sym, "count": v})
