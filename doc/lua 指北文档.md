@@ -82,3 +82,5 @@ static int beaver_threads_start(int thread, pthread_t ** tid_arr, struct beaver_
 
 &emsp;总的来说，它在额外消耗有限的一小部分资源情况下，可以和C形成一个良好的互补，让C应用开发具备很多高级语言的特性。
 
+&emsp;Lua并不是一门要你编写大量开发代码的语言，相反，Lua希望你仅用少量代码去解决关键性问题。
+
