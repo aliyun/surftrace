@@ -15,11 +15,11 @@ __author__ = 'liaozhaoyan'
 from mulitWork import CgroupWork
 
 workPath = "/root/1ext/work"
-srcPath = "/root/2ext/vmhive/aarch64/pack"
-dstPath = "/root/2ext/nhive/"
+srcPath = "/root/1ext/pack"
+dstPath = "/root/1ext"
 
 
 if __name__ == "__main__":
-    g = CgroupWork(srcPath, maxL=14)
+    g = CgroupWork(srcPath, maxL=32)
     g.work(workPath, dstPath)
     pass

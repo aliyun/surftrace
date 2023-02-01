@@ -78,6 +78,8 @@ static int beaver_threads_start(int thread, pthread_t ** tid_arr, struct beaver_
 * 内置模式匹配，引入pystirng 库后可以像python 一样对字符串进行操作
 * 支持词法闭包(closure)
 * 支持协程
+* luajit 可以加速执行速度，代码执行效率和C接近
+* luajit ffi接口可以与so无缝对接
 * ……
 
 &emsp;总的来说，它在额外消耗有限的一小部分资源情况下，可以和C形成一个良好的互补，让C应用开发具备很多高级语言的特性。

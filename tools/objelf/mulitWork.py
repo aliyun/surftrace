@@ -74,10 +74,12 @@ class Cwork(Process):
         elif name.endswith(".ddeb"):
             ver = self._genDebVer(name)
         else:
-            raise ValueError("bad version.")
+            raise ValueError("bad version. {name}")
 
-        DBPath = self._dPath + arch + "/db/"
-        return DBPath + "%s/info-%s.db" % (release, ver)
+        DBPath = self._dPath + "/db/"
+        path = DBPath + "%s/info-%s.db" % (release, ver)
+        print(path)
+        return path
 
     def _unpack(self, name):
         if name.endswith(".rpm"):
