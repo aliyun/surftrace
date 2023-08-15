@@ -46,8 +46,8 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 ​	surftrace支持 remote（默认），local和gdb三种表达式解析器，要求分别如下：
 
-- 1. remote mode：可以访问pylcc.openanolis.cn
-- 2. local mode：从http://pylcc.openanolis.cn/db/ 下载对应arch和内核的下载到本地
+- 1. remote mode：可以访问www.foxbeaver.cn
+- 2. local mode：从http://www.foxbeaver.cn/db/ 下载对应arch和内核的下载到本地
 - 3. gdb mode：gdb version > 8.0，存放有对应内核的vmlinux；对于gdb模式而言，不受公开发行版内核限制(性能太弱，已经不再推荐)
 
 ## 2.1、安装
@@ -763,7 +763,7 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 基本要求
 - 能力要求：熟悉c，libpf开发特性，python
 - python2.7 或者python3都可以运行，无需安装任何第三方库。
-- 环境要求：可以访问pylcc.openanolis.cn。后面编译容器发布了以后，可以自行搭建编译服务执行
+- 环境要求：可以访问www.foxbeaver.cn。后面编译容器发布了以后，可以自行搭建编译服务执行
 ## 6.2 实战
 执行pip install pylcc安装
 
@@ -1364,7 +1364,7 @@ python javaProbe.py 71236 "Ltest;::square_test"
 
 - 能力要求：熟悉c，libpf开发特性，
 - python2.7 或者python3，coolbpf >=0.1.1，可以执行pip install -U coolbpf
-- 环境要求：可以访问pylcc.openanolis.cn或自己建远程编译服务
+- 环境要求：可以访问www.foxbeaver.cn或自己建远程编译服务
 - 编译要求：本地已安装gcc/make
 
 ## 7.2 coolbpf 命令说明

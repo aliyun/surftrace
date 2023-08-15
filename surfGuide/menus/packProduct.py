@@ -24,7 +24,7 @@ from conBase import CconBase, log
 from showVersions import CshowVersions
 from publish import Cpublish
 
-verUrl = "http://pylcc.openanolis.cn/version/"
+verUrl = "http://www.foxbeaver.cn/version/"
 SHOW_VERS = 8
 
 class CpackProduct(CconBase):

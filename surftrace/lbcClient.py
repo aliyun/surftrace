@@ -52,7 +52,7 @@ def segEncode(stream):
 
 
 class ClbcClient(CbaseParser):
-    def __init__(self, server="pylcc.openanolis.cn", ver="", arch="", port=LBC_COMPILE_PORT):
+    def __init__(self, server="www.foxbeaver.cn", ver="", arch="", port=LBC_COMPILE_PORT):
         super(ClbcClient, self).__init__()
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]

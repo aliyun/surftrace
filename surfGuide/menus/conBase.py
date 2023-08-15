@@ -281,7 +281,7 @@ class CconBase(object):
     def checkUrl(self, url):
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]
-            url = url.replace("pylcc.openanolis.cn", server)
+            url = url.replace("www.foxbeaver.cn", server)
         return url
 
     def loop(self):

@@ -39,7 +39,7 @@ def getCwd(pathStr):
 
 class ClbcLoad(object):
     def __init__(self, bpf, bpf_str="",
-                 server="pylcc.openanolis.cn",
+                 server="www.foxbeaver.cn",
                  arch="", ver="", env="",
                  workPath=None, incPath=None,
                  logLevel=-1, btf=True,
@@ -306,7 +306,7 @@ class ClbcLoad(object):
 
 class ClbcBase(ClbcLoad):
     def __init__(self, bpf, bpf_str="",
-                 server="pylcc.openanolis.cn",
+                 server="www.foxbeaver.cn",
                  arch="", ver="", env="",
                  attach=1, workPath=None
                  ):

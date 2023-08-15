@@ -9,7 +9,7 @@
 
 1. 目标实例安装docker或者其它容器服务
 2. 目标实例预留100G左右的磁盘空间（存放btf/header/db文件）
-3. 如果要实时更新btf/header/db，需要支持访问pylcc.openanolis.cn
+3. 如果要实时更新btf/header/db，需要支持访问www.foxbeaver.cn
 4. surftrace >=0.7.0 pylcc >= 0.2.10
 5. 默认绑定7655 tcp 端口
 
@@ -19,9 +19,9 @@
 &emsp;在实例上创建目录，如/root/1ext/hive，并在该目录下，同步db/btf/header数据源：
 
 ```bash
-rsync -av pylcc.openanolis.cn::pylcc/btf .
-rsync -av pylcc.openanolis.cn::pylcc/db .
-rsync -av pylcc.openanolis.cn::pylcc/header .
+rsync -av www.foxbeaver.cn::pylcc/btf .
+rsync -av www.foxbeaver.cn::pylcc/db .
+rsync -av www.foxbeaver.cn::pylcc/header .
 ```
 &emsp;建议将rsync 放到crontab 定时任务中去，与远端数据源定期保持同步。
 ## 2.2、启动容器

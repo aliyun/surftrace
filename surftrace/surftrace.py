@@ -428,7 +428,7 @@ class surftrace(ftrace):
 
 def setupParser(mode="remote",
                 db="",
-                remote_ip="pylcc.openanolis.cn",
+                remote_ip="www.foxbeaver.cn",
                 gdb="./gdb",
                 vmlinux="",
                 arch="",
@@ -457,7 +457,7 @@ def main():
     parser.add_argument('-v', '--vmlinux', type=str, dest='vmlinux', default="", help='set vmlinux path.')
     parser.add_argument('-m', '--mode', type=str, dest='mode', default="remote", help='set arg parser, fro')
     parser.add_argument('-d', '--db', type=str, dest='db', default="", help='set local db path.')
-    parser.add_argument('-r', '--rip', type=str, dest='rip', default="pylcc.openanolis.cn",
+    parser.add_argument('-r', '--rip', type=str, dest='rip', default="www.foxbeaver.cn",
                         help='set remote server ip, remote mode only.')
     parser.add_argument('-f', '--file', type=str, dest='file', help='set input args path.')
     parser.add_argument('-g', '--gdb', type=str, dest='gdb', default="./gdb", help='set gdb exe file path.')

@@ -24,13 +24,15 @@ from surftrace import CexecCmd
 LBC_COMPILE_PORT = 7654
 LBCBuffSize = 80 * 1024 * 1024
 
+
 class DbException(Exception):
     def __init__(self, message):
         super(DbException, self).__init__(message)
         self.message = message
 
+
 class ClbcClient(object):
-    def __init__(self, server="pylcc.openanolis.cn", ver="", arch=""):
+    def __init__(self, server="www.foxbeaver.cn", ver="", arch=""):
         super(ClbcClient, self).__init__()
         if "LBC_SERVER" in os.environ:
             server = os.environ["LBC_SERVER"]

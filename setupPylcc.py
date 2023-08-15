@@ -13,7 +13,7 @@
 """
 __author__ = 'liaozhaoyan'
 
-VERSION = '0.3.2'
+VERSION = '0.3.4'
 
 from setuptools import setup
 
@@ -42,7 +42,7 @@ setup(name='pylcc',
       packages=["pylcc"],
       include_package_data=True,
       zip_safe=True,
-      install_requires=['surftrace>=0.7.13', 'cffi'],
+      install_requires=['surftrace>=0.7.14', 'cffi'],
       entry_points={
           'console_scripts': [
           ]

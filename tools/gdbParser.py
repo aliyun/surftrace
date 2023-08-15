@@ -155,7 +155,7 @@ class CgdbParser(object):
         if int(major) < 9:
             s = "you gdb version is %s, lower than 9.x." % res.group()
             s += " A high version of the gdb is required to achieve full functionality.\n"
-            s += "if your arch is x86_64, you can wget http://pylcc.openanolis.cn/gdb/x64/gdb then set gdb path args."
+            s += "if your arch is x86_64, you can wget http://www.foxbeaver.cn/gdb/x64/gdb then set gdb path args."
             raise FileNotExistException(s)
 
     def __getVmlinuxPath(self):

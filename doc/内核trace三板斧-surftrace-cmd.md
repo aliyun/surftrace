@@ -85,14 +85,14 @@ echo 0 > /sys/kernel/debug/tracing/instances/surftrace/tracing_on
 
 ​&emsp;使用surftrace，需要满足以下条件：
 
-- 1. 公开发行版linux内核，支持目录参考：http://pylcc.openanolis.cn/version/  （持续更新）
+- 1. 公开发行版linux内核，支持目录参考：http://www.foxbeaver.cn/version/  （持续更新）
 - 2. 内核支持ftrace，已配置了debugfs，root权限；
 - 3. Python2 >= 2.7; Python3 >= 3.5，已安装pip；
 
 ​	surftrace支持 remote（默认），local和gdb三种表达式解析器，要求分别如下：
 
-- 1. remote mode：可以访问pylcc.openanolis.cn
-- 2. local mode：从http://pylcc.openanolis.cn/db/ 下载对应arch和内核的下载到本地
+- 1. remote mode：可以访问www.foxbeaver.cn
+- 2. local mode：从http://www.foxbeaver.cn/db/ 下载对应arch和内核的下载到本地
 - 3. gdb mode：gdb version > 8.0，存放有对应内核的vmlinux；对于gdb模式而言，不受公开发行版内核限制
 
 ## 3.1、安装
