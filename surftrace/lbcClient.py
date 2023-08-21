@@ -22,7 +22,7 @@ from .prevPareser import CprevPareser
 from .execCmd import CexecCmd
 from .surfException import DbException
 
-LBC_COMPILE_PORT = 7655
+LBC_COMPILE_PORT = 80
 
 SEG_UNIT = 4096
 
